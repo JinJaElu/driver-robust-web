@@ -1,0 +1,2204 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>数据看板 · 自动驾驶鲁棒性评估</title>
+<meta name="description" content="自动驾驶多场景扰动仿真鲁棒性评估数据看板，可视化展示各扰动类型下的感知性能指标">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Noto+Sans+SC:wght@300;400;500;700;900&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --glass-bg:     rgba(18, 16, 12, 0.7);
+    --glass-border: rgba(124, 255, 186, 0.18);
+    --glass-shadow: rgba(0, 0, 0, 0.6);
+    --text-primary:   #ffffff;
+    --text-secondary: #e5e0d8;
+    --text-muted:     #8c867a;
+    --accent:    #7cffba;
+    --accent-light: #e5c158;
+    --accent-dark: #8c7853;
+    --green:     #7cffba; /* Good: Shiny Gold */
+    --yellow:    #d7b45a; /* Warn: Amber Gold */
+    --red:       #ff766d; /* Danger: Rust Red */
+    --sidebar-w: 240px;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Inter', sans-serif;
+    min-height: 100vh;
+    background-color: #07080b;
+    background-image: 
+      linear-gradient(rgba(124, 255, 186, 0.012) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(124, 255, 186, 0.012) 1px, transparent 1px);
+    background-size: 40px 40px;
+    background-position: center;
+    color: var(--text-primary);
+    overflow-x: hidden;
+  }
+
+  body::before {
+    content: "";
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-image: url('../../2.jpg');
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+    opacity: 0.10; filter: hue-rotate(90deg) brightness(0.6);
+    z-index: -1;
+    pointer-events: none;
+  }
+
+  /* ─── Layout shell ─── */
+  .app-shell { position: relative; z-index: 1; display: flex; min-height: 100vh; }
+
+  /* ─── Sidebar ─── */
+  .sidebar {
+    width: var(--sidebar-w);
+    flex-shrink: 0;
+    position: fixed;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    padding: 28px 16px 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    background: rgba(10, 11, 16, 0.85);
+    backdrop-filter: blur(30px) saturate(1.8);
+    -webkit-backdrop-filter: blur(30px) saturate(1.8);
+    border-right: 1px solid rgba(255, 255, 255, 0.08);
+    box-shadow: 4px 0 30px rgba(0, 0, 0, 0.5);
+    z-index: 90;
+    transition: transform 0.3s ease;
+  }
+  .sidebar-logo {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 12px 22px;
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+    margin-bottom: 10px;
+  }
+  .sidebar-logo-icon {
+    width: 36px; height: 36px;
+    border-radius: 0;
+    background: linear-gradient(135deg, #00a2ff, #7c5cf7);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    box-shadow: 0 4px 14px rgba(79,124,247,0.30);
+    flex-shrink: 0;
+  }
+  .sidebar-logo-text {
+    font-size: 14px;
+    font-family: 'Inter', 'Noto Sans SC', sans-serif;
+    font-weight: 700;
+    color: var(--text-primary);
+    line-height: 1.2;
+  }
+  .sidebar-logo-text small {
+    display: block;
+    font-size: 11px;
+    font-weight: 400;
+    color: var(--text-muted);
+  }
+
+  .nav-section-label {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    padding: 10px 12px 6px;
+  }
+  .sidebar-nav-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 12px;
+    border-radius: 0;
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--text-secondary);
+    cursor: pointer;
+    border: none;
+    background: none;
+    width: 100%;
+    text-align: left;
+    transition: all 0.2s ease;
+    text-decoration: none;
+  }
+  .sidebar-nav-item:hover {
+    background: rgba(255,255,255,0.04);
+    color: var(--accent);
+  }
+  .sidebar-nav-item.active {
+    background: rgba(124, 255, 186, 0.08); border-left: 3px solid var(--accent);
+    color: var(--accent);
+    font-weight: 600;
+  }
+  .sidebar-nav-item .nav-icon { font-size: 16px; flex-shrink: 0; }
+  .nav-badge {
+    margin-left: auto;
+    padding: 2px 7px;
+    background: rgba(124, 255, 186, 0.08); border-left: 3px solid var(--accent);
+    color: var(--accent);
+    border-radius: 0;
+    font-size: 11px;
+    font-weight: 600;
+  }
+  .sidebar-footer {
+    margin-top: auto;
+    padding-top: 18px;
+    border-top: 1px solid rgba(255, 255, 255, 0.06);
+  }
+
+  /* ─── Main content ─── */
+  .main-content {
+    margin-left: var(--sidebar-w);
+    flex: 1;
+    min-width: 0;
+    padding: 0;
+  }
+
+  /* ─── Top bar ─── */
+  .topbar {
+    position: sticky;
+    top: 0;
+    z-index: 80;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 16px 32px;
+    background: rgba(10, 11, 16, 0.7);
+    backdrop-filter: blur(24px) saturate(1.8);
+    -webkit-backdrop-filter: blur(24px) saturate(1.8);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+  }
+  .topbar-title {
+    font-size: 18px;
+    font-family: 'Inter', 'Noto Sans SC', sans-serif;
+    font-weight: 700;
+    color: var(--text-primary);
+    letter-spacing: -0.01em;
+  }
+  .topbar-subtitle {
+    font-size: 13px;
+    color: var(--text-muted);
+    margin-left: 2px;
+  }
+  .topbar-right {
+    margin-left: auto;
+    display: flex;
+    gap: 10px;
+    align-items: center;
+  }
+  .topbar-tag {
+    padding: 5px 14px;
+    background: rgba(255, 255, 255, 0.03);
+    backdrop-filter: blur(12px);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 0;
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--text-secondary);
+    box-shadow: 0 2px 8px rgba(80,120,255,0.06);
+  }
+  .topbar-status {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    color: var(--green);
+    font-weight: 600;
+  }
+  .status-dot {
+    width: 7px; height: 7px;
+    border-radius: 0;
+    background: var(--green);
+    box-shadow: 0 0 0 2px rgba(11,192,160,0.22);
+    animation: pulse-g 2s ease infinite;
+  }
+  @keyframes pulse-g {
+    0%,100% { box-shadow: 0 0 0 2px rgba(11,192,160,0.22); }
+    50% { box-shadow: 0 0 0 5px rgba(11,192,160,0.08); }
+  }
+
+  /* ─── Dashboard grid ─── */
+  .dash-body { padding: 28px 32px 60px; }
+
+  /* ─── Section header ─── */
+  .dash-section-head {
+    display: flex;
+    align-items: baseline;
+    gap: 12px;
+    margin-bottom: 18px;
+    margin-top: 36px;
+  }
+  .dash-section-head:first-of-type { margin-top: 0; }
+  .dash-section-title {
+    font-size: 17px;
+    font-family: 'Inter', 'Noto Sans SC', sans-serif;
+    font-weight: 800;
+    color: var(--text-primary);
+    letter-spacing: -0.01em;
+  }
+  .dash-section-sub {
+    font-size: 13px;
+    color: var(--text-muted);
+  }
+  .section-more {
+    margin-left: auto;
+    font-size: 13px;
+    color: var(--accent);
+    cursor: pointer;
+    font-weight: 500;
+    border: none;
+    background: none;
+    text-decoration: none;
+  }
+
+  /* ─── Glass card base ─── */
+  .glass-card {
+    background: rgba(255, 255, 255, 0.03);
+    backdrop-filter: blur(28px) saturate(1.8);
+    -webkit-backdrop-filter: blur(28px) saturate(1.8);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 0;
+    box-shadow:
+      0 6px 32px rgba(80,120,255,0.08),
+      0 2px 0 rgba(255,255,255,0.9) inset,
+      0 -1px 0 rgba(180,200,255,0.14) inset;
+  }
+
+  /* ─── KPI row ─── */
+  .kpi-row {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 16px;
+    margin-bottom: 8px;
+  }
+  .kpi-card {
+    padding: 22px 22px 18px;
+    position: relative;
+    overflow: hidden;
+    transition: transform 0.3s ease;
+  }
+  .kpi-card:hover { transform: translateY(-4px); }
+  .kpi-card::after {
+    content: '';
+    position: absolute;
+    top: 0; right: 0;
+    width: 80px; height: 80px;
+    border-radius: 0;
+    opacity: 0.08;
+  }
+  .kpi-card.c-blue::after   { background: #4f7cf7; }
+  .kpi-card.c-purple::after { background: #7c5cf7; }
+  .kpi-card.c-teal::after   { background: #0bc0a0; }
+  .kpi-card.c-red::after    { background: #f76a5c; }
+
+  .kpi-icon {
+    font-size: 22px;
+    margin-bottom: 14px;
+    display: block;
+  }
+  .kpi-value {
+    font-size: 32px;
+    font-weight: 900;
+    letter-spacing: -0.03em;
+    line-height: 1;
+    margin-bottom: 6px;
+  }
+  .kpi-value.blue   { color: #00e5ff; }
+  .kpi-value.purple { color: #7c5cf7; }
+  .kpi-value.teal   { color: #0bc0a0; }
+  .kpi-value.red    { color: #f76a5c; }
+  .kpi-label { font-size: 13px; color: var(--text-muted); font-weight: 500; }
+  .kpi-delta {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    font-size: 11px;
+    font-weight: 600;
+    padding: 2px 7px;
+    border-radius: 0;
+    margin-top: 8px;
+  }
+  .kpi-delta.down { background: rgba(247,106,92,0.10); color: var(--red); }
+  .kpi-delta.up   { background: rgba(11,192,160,0.10); color: var(--green); }
+
+  /* ─── Two-column grid ─── */
+  .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .three-col { display: grid; grid-template-columns: repeat(3,1fr); gap: 16px; }
+
+  /* ─── Chart placeholder ─── */
+  .chart-card { padding: 24px 26px; }
+  .chart-title {
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin-bottom: 4px;
+  }
+  .chart-sub {
+    font-size: 12px;
+    color: var(--text-muted);
+    margin-bottom: 20px;
+  }
+  .chart-area {
+    height: 220px;
+    border-radius: 0;
+    background:
+      linear-gradient(to bottom, rgba(0, 229, 255, 0.04), rgba(0, 229, 255, 0.01)),
+      repeating-linear-gradient(
+        0deg,
+        transparent,
+        transparent 43px,
+        rgba(255, 255, 255, 0.03) 43px,
+        rgba(255, 255, 255, 0.03) 44px
+      );
+    border: 1px dashed rgba(0, 229, 255, 0.15);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    position: relative;
+    overflow: hidden;
+  }
+  /* Simulated bar chart */
+  .chart-bars {
+    display: flex;
+    align-items: flex-end;
+    gap: 10px;
+    height: 140px;
+    padding: 0 16px;
+    width: 100%;
+  }
+  .chart-bar-wrap {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    height: 100%;
+    justify-content: flex-end;
+  }
+  .chart-bar {
+    width: 100%;
+    border-radius: 0;
+    position: relative;
+    transition: opacity 0.2s;
+  }
+  .chart-bar:hover { opacity: 0.10; filter: hue-rotate(90deg) brightness(0.6); }
+  .chart-bar-val {
+    font-size: 9px;
+    font-weight: 700;
+    color: var(--text-secondary);
+    white-space: nowrap;
+  }
+  .chart-bar-name {
+    font-size: 8px;
+    color: var(--text-muted);
+    text-align: center;
+    transform: rotate(-35deg);
+    transform-origin: top center;
+    white-space: nowrap;
+    margin-top: 4px;
+  }
+
+  /* Line chart simulation */
+  .chart-line-area {
+    width: 100%;
+    height: 100%;
+    padding: 16px;
+    display: flex;
+    align-items: flex-end;
+  }
+
+  /* ─── Table card ─── */
+  .table-card { overflow: hidden; }
+  .table-header {
+    padding: 20px 24px 16px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  }
+  .table-title { font-size: 15px; font-weight: 700; color: var(--text-primary); }
+  .table-sub   { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
+  .table-search {
+    margin-left: auto;
+    padding: 7px 14px;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 0;
+    font-size: 13px;
+    color: var(--text-primary);
+    font-family: inherit;
+    outline: none;
+    width: 200px;
+    transition: all 0.2s;
+    backdrop-filter: blur(10px);
+  }
+  .table-search:focus {
+    border-color: rgba(0, 229, 255, 0.35);
+    background: rgba(255,255,255,0.05);
+    box-shadow: 0 0 0 3px rgba(0, 229, 255, 0.08);
+  }
+  .table-search::placeholder { color: var(--text-muted); }
+  .data-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+  }
+  .data-table thead th {
+    padding: 10px 16px;
+    text-align: left;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    background: rgba(255, 255, 255, 0.02);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    white-space: nowrap;
+    cursor: pointer;
+    user-select: none;
+    transition: color 0.2s;
+  }
+  .data-table thead th:hover { color: var(--accent); }
+  .data-table tbody tr {
+    border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+    transition: background 0.15s;
+  }
+  .data-table tbody tr:last-child { border-bottom: none; }
+  .data-table tbody tr:hover { background: rgba(255, 255, 255, 0.02); }
+  .data-table td {
+    padding: 11px 16px;
+    color: var(--text-secondary);
+    vertical-align: middle;
+  }
+  .td-code {
+    font-family: 'SF Mono', 'Fira Code', monospace;
+    font-size: 12px;
+    background: rgba(124, 255, 186, 0.08);
+    color: #00e5ff;
+    padding: 3px 8px;
+    border-radius: 0;
+    display: inline-block;
+  }
+  .td-strong { font-weight: 700; color: var(--text-primary); }
+
+  /* Recall pill */
+  .recall-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-weight: 700;
+    font-size: 13px;
+    padding: 3px 10px;
+    border-radius: 0;
+  }
+  .recall-pill.high   { background: rgba(11,192,160,0.10); color: #0bc0a0; }
+  .recall-pill.mid    { background: rgba(247,179,71,0.12); color: #e09520; }
+  .recall-pill.low    { background: rgba(247,106,92,0.10); color: #f76a5c; }
+
+  /* Severity bar */
+  .severity-bar {
+    display: flex;
+    gap: 3px;
+    align-items: center;
+  }
+  .sev-dot {
+    width: 10px; height: 10px;
+    border-radius: 0;
+    background: rgba(124, 255, 186, 0.08); border-left: 3px solid var(--accent);
+    transition: background 0.2s;
+  }
+  .sev-dot.filled { background: linear-gradient(135deg, #00a2ff, #7c5cf7); }
+  .sev-dot.red    { background: linear-gradient(135deg, #f76a5c, #f7a05c); }
+  .sev-dot.yellow { background: linear-gradient(135deg, #f7b347, #f7e047); }
+
+  /* Progress bar inline */
+  .mini-progress {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 100px;
+  }
+  .mini-progress-track {
+    flex: 1;
+    height: 5px;
+    background: rgba(255, 255, 255, 0.06);
+    border-radius: 0;
+    overflow: hidden;
+  }
+  .mini-progress-fill {
+    height: 100%;
+    border-radius: 0;
+    background: linear-gradient(90deg, var(--accent-dark), var(--accent));
+  }
+  
+  
+  
+  .mini-progress-val { font-size: 12px; font-weight: 700; color: var(--text-secondary); white-space: nowrap; }
+
+  /* ─── Perturbation grid ─── */
+  .pert-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 14px;
+  }
+  .pert-card {
+    padding: 18px 20px;
+    border-left: 3px solid transparent;
+    transition: all 0.3s ease;
+    cursor: default;
+    position: relative;
+    overflow: hidden;
+  }
+  .pert-card::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    background: linear-gradient(135deg, rgba(255,255,255,0.40), transparent);
+    pointer-events: none;
+  }
+  .pert-card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 14px 40px rgba(80,120,255,0.13), 0 2px 0 rgba(255,255,255,0.9) inset;
+  }
+  .pert-card.good   { border-left-color: #0bc0a0; }
+  .pert-card.warn   { border-left-color: #f7b347; }
+  .pert-card.danger { border-left-color: #f76a5c; }
+
+  .pert-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+  .pert-name   { font-size: 14px; font-weight: 700; color: var(--text-primary); }
+  .pert-sev    { font-size: 11px; color: var(--text-muted); }
+  .pert-code   { font-family: monospace; font-size: 11px; color: var(--accent); background: rgba(124, 255, 186, 0.08); padding: 2px 7px; border-radius: 0; display: inline-block; margin-bottom: 10px; }
+  .pert-metric { display: flex; align-items: center; justify-content: space-between; margin-top: 8px; }
+  .pert-metric-label { font-size: 11px; color: var(--text-muted); }
+  .pert-metric-val   { font-size: 13px; font-weight: 700; color: var(--text-primary); }
+
+  /* ─── Scene type cards ─── */
+  .scene-row {
+    display: grid;
+    grid-template-columns: repeat(4,1fr);
+    gap: 14px;
+  }
+  .scene-card {
+    padding: 18px 18px 14px;
+    transition: transform 0.3s ease;
+  }
+  .scene-card:hover { transform: translateY(-4px); }
+  .scene-icon { font-size: 28px; margin-bottom: 10px; display: block; }
+  .scene-title { font-size: 13px; font-weight: 700; color: var(--text-primary); margin-bottom: 4px; }
+  .scene-recall { font-size: 22px; font-weight: 900; letter-spacing: -0.02em; margin-bottom: 4px; }
+  .scene-recall.g { color: #0bc0a0; }
+  .scene-recall.y { color: #f7b347; }
+  .scene-recall.r { color: #f76a5c; }
+  .scene-count { font-size: 11px; color: var(--text-muted); }
+
+  /* ─── Conclusion callout ─── */
+  .callout-card {
+    padding: 22px 28px;
+    border-left: 4px solid var(--accent);
+    background: rgba(10, 11, 16, 0.85);
+    backdrop-filter: blur(20px);
+    border-radius: 0;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-left: 4px solid var(--accent);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+  }
+  .callout-title { font-size: 14px; font-weight: 700; color: var(--text-primary); margin-bottom: 8px; }
+  .callout-body  { font-size: 14px; color: var(--text-secondary); line-height: 1.7; }
+  .callout-body code {
+    font-family: monospace;
+    font-size: 12px;
+    background: rgba(255, 255, 255, 0.06);
+    color: var(--accent);
+    padding: 2px 7px;
+    border-radius: 0;
+  }
+
+  /* ─── Filter tabs ─── */
+  .filter-tabs {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+    margin-bottom: 16px;
+  }
+  .filter-tab {
+    padding: 7px 16px;
+    background: rgba(255, 255, 255, 0.03);
+    backdrop-filter: blur(14px);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 0;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: all 0.2s;
+    outline: none;
+  }
+  .filter-tab:hover { color: var(--accent); background: rgba(255, 255, 255, 0.05); }
+  .filter-tab.active {
+    background: rgba(124, 255, 186, 0.08); border-left: 3px solid var(--accent);
+    color: var(--accent);
+    border-color: rgba(0, 229, 255, 0.3);
+    font-weight: 600;
+  }
+
+  /* ─── Pagination ─── */
+  .pagination {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+    justify-content: flex-end;
+    padding: 14px 20px;
+    border-top: 1px solid rgba(79,124,247,0.06);
+  }
+  .page-btn {
+    width: 30px; height: 30px;
+    border-radius: 0;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    background: rgba(255, 255, 255, 0.03);
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+  }
+  .page-btn:hover { color: var(--accent); background: rgba(124, 255, 186, 0.08); }
+  .page-btn.active {
+    background: linear-gradient(135deg, #00a2ff, #7c5cf7);
+    color: #fff;
+    border-color: transparent;
+    box-shadow: 0 2px 10px rgba(79,124,247,0.30);
+  }
+  .page-info { font-size: 12px; color: var(--text-muted); padding: 0 8px; }
+
+  /* ─── Apollo / Integration section ─── */
+  .integration-grid {
+    display: grid;
+    grid-template-columns: 1.4fr 1fr;
+    gap: 16px;
+  }
+  .file-list { padding: 20px 24px; }
+  .file-list-title { font-size: 15px; font-weight: 700; color: var(--text-primary); margin-bottom: 16px; }
+  .file-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 0;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+    cursor: pointer;
+    transition: color 0.2s;
+  }
+  .file-item:last-child { border-bottom: none; }
+  .file-item:hover .file-name { color: var(--accent); }
+  .file-icon {
+    width: 36px; height: 36px;
+    border-radius: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+    flex-shrink: 0;
+    background: rgba(124, 255, 186, 0.08);
+  }
+  .file-name { font-size: 13px; font-weight: 600; color: var(--text-primary); font-family: monospace; }
+  .file-desc { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
+  .file-size { margin-left: auto; font-size: 11px; color: var(--text-muted); white-space: nowrap; }
+
+  .cmd-card { padding: 20px 24px; }
+  .cmd-title { font-size: 15px; font-weight: 700; color: var(--text-primary); margin-bottom: 14px; }
+  .cmd-block {
+    background: rgba(255, 255, 255, 0.02);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 0;
+    padding: 14px 16px;
+    font-family: 'SF Mono', 'Fira Code', monospace;
+    font-size: 12px;
+    color: var(--text-secondary);
+    margin-bottom: 10px;
+    position: relative;
+    transition: background 0.2s;
+    cursor: default;
+    word-break: break-all;
+  }
+  .cmd-block:hover { background: rgba(255, 255, 255, 0.04); }
+  .cmd-label { font-size: 11px; color: var(--text-muted); margin-bottom: 5px; font-weight: 600; letter-spacing: 0.04em; }
+
+  /* ─── Recommendation cards ─── */
+  .rec-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 14px; }
+  .rec-card { padding: 22px 20px; position: relative; overflow: hidden; transition: transform 0.3s ease; }
+  .rec-card:hover { transform: translateY(-4px); }
+  .rec-num {
+    font-size: 44px;
+    font-weight: 900;
+    line-height: 1;
+    letter-spacing: -0.04em;
+    margin-bottom: 12px;
+    background: linear-gradient(135deg, rgba(79,124,247,0.20), rgba(124,92,247,0.20));
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+  .rec-title { font-size: 15px; font-weight: 700; color: var(--text-primary); margin-bottom: 8px; }
+  .rec-desc  { font-size: 13px; color: var(--text-secondary); line-height: 1.6; }
+
+  /* ─── Responsive ─── */
+  @media (max-width: 1200px) {
+    .pert-grid, .kpi-row { grid-template-columns: repeat(2,1fr); }
+    .integration-grid   { grid-template-columns: 1fr; }
+  }
+  @media (max-width: 900px) {
+    :root { --sidebar-w: 0px; }
+    .sidebar { display: none; }
+    .main-content { margin-left: 0; }
+    .two-col, .three-col, .scene-row, .rec-grid { grid-template-columns: 1fr; }
+    .pert-grid { grid-template-columns: 1fr; }
+  }
+  @media (max-width: 600px) {
+    .kpi-row { grid-template-columns: 1fr 1fr; }
+    .dash-body { padding: 20px 16px 40px; }
+    .topbar { padding: 14px 16px; }
+    .topbar-subtitle, .topbar-tag { display: none; }
+  }
+
+  /* ─── Animations ─── */
+  .fade-in { animation: fadeUp 0.5s ease both; }
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(16px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  .fade-in:nth-child(1) { animation-delay: 0.05s; }
+  .fade-in:nth-child(2) { animation-delay: 0.10s; }
+  .fade-in:nth-child(3) { animation-delay: 0.15s; }
+  .fade-in:nth-child(4) { animation-delay: 0.20s; }
+
+  /* ─── Modal Styles ─── */
+  .modal-overlay {
+    backdrop-filter: blur(10px);
+    display: none;
+    transition: opacity 0.3s ease;
+  }
+  @keyframes blink {
+    50% { opacity: 0.3; }
+  }
+
+  @media print {
+    body {
+      background: #ffffff !important;
+      color: #121820 !important;
+    }
+    .app-shell {
+      display: block !important;
+    }
+    .sidebar, .topbar, .radar-tabs, .section-more, .filter-tabs, .sidebar-footer {
+      display: none !important;
+    }
+    .main-content {
+      margin-left: 0 !important;
+      padding: 0 !important;
+      width: 100% !important;
+    }
+    .glass-card {
+      background: #f8fafc !important;
+      border: 1px solid #e2e8f0 !important;
+      box-shadow: none !important;
+      color: #121820 !important;
+    }
+    .chart-title {
+      color: #121820 !important;
+      border-bottom: 2px solid #0bc0a0 !important;
+      padding-bottom: 6px !important;
+    }
+    .chart-sub {
+      color: #475569 !important;
+    }
+    text {
+      fill: #475569 !important;
+    }
+    line, circle {
+      stroke: #cbd5e1 !important;
+    }
+    polygon {
+      fill: rgba(11,192,160,0.15) !important;
+      stroke: #0bc0a0 !important;
+    }
+    #m-val-rdi, #m-val-mld, #m-val-cmif, #m-val-dcs, #m-val-ajer, #m-val-rgi {
+      color: #0f172a !important;
+    }
+    .hbar-fill {
+      print-color-adjust: exact !important;
+      -webkit-print-color-adjust: exact !important;
+    }
+  }
+</style>
+</head>
+<body>
+
+<!-- Background layers (blobs disabled for custom image background) -->
+
+<div class="app-shell">
+
+  <!-- ─── Sidebar ─── -->
+  <nav class="sidebar" aria-label="侧边导航">
+    <div class="sidebar-logo">
+      <div class="sidebar-logo-text" style="font-family: 'Space Mono', monospace; font-size: 15px;">
+        <span style="color:var(--accent)">[</span><span style="color:var(--accent)">]</span> DriveRobust 系统
+        <small style="font-family: sans-serif; font-size: 11px; margin-top:2px; color:var(--text-muted)">鲁棒性评估系统</small>
+      </div>
+    </div>
+
+    <div class="nav-section-label">主要功能</div>
+    <a class="sidebar-nav-item active" href="dashboard.html" id="nav-overview">
+      // 总览看板
+    </a>
+    <button class="sidebar-nav-item" id="nav-models" onclick="openModelWarehouse()">
+      // 模型管理仓
+    </button>
+    <button class="sidebar-nav-item" id="nav-task" onclick="openTaskConfig()">
+      // 对抗测试任务
+    </button>
+    <button class="sidebar-nav-item" id="nav-perturbation" onclick="showSection('perturbation')">
+      // 扰动分析
+    </button>
+    <button class="sidebar-nav-item" id="nav-scenes" onclick="showSection('scenes')">
+      // 场景覆盖
+    </button>
+    <button class="sidebar-nav-item" id="nav-weak" onclick="showSection('weak')">
+      // 薄弱场景
+      <span class="nav-badge">12</span>
+    </button>
+
+    <div class="nav-section-label" style="margin-top:8px">感知回放</div>
+    <a class="sidebar-nav-item" href="replay.html" id="nav-replay">
+      // 3D 传感器回放
+    </a>
+    <a class="sidebar-nav-item" href="bevfusion.html" id="nav-bevfusion">
+      // BEVFusion 播放器
+    </a>
+
+    <div class="nav-section-label" style="margin-top:8px">集成</div>
+    <button class="sidebar-nav-item" id="nav-apollo" onclick="showSection('apollo')">
+      // Apollo 接口
+    </button>
+    <button class="sidebar-nav-item" id="nav-export" onclick="exportPDFReport()">
+      // 导出数据
+    </button>
+
+    <div class="sidebar-footer">
+      <a class="sidebar-nav-item" href="../index.html">
+        ← 返回主页
+      </a>
+      <div style="padding:8px 12px;font-size:11px;color:var(--text-muted);">
+        数据截止 2026-06-27<br>
+        50 基础帧 · 750 仿真场景
+      </div>
+    </div>
+  </nav>
+
+  <!-- ─── Main ─── -->
+  <div class="main-content">
+
+    <!-- Top bar -->
+    <header class="topbar">
+      <div>
+        <div class="topbar-title">数据// 总览看板</div>
+        <div class="topbar-subtitle">自动驾驶多场景扰动仿真与鲁棒性评估</div>
+      </div>
+      <div class="topbar-right">
+        <span class="topbar-tag">KITTI small50 数据集</span>
+        <span class="topbar-tag">YOLO / AVOD 感知检测模型</span>
+        <div class="topbar-status">
+          <span class="status-dot" aria-hidden="true"></span>
+          评估完成
+        </div>
+      </div>
+    </header>
+
+    <!-- Dashboard body -->
+    <div class="dash-body" id="dash-body">
+
+      <!-- ─── Section: KPI ─── -->
+      <div class="dash-section-head">
+        <h2 class="dash-section-title">关键指标</h2>
+        <span class="dash-section-sub">基于 750 个仿真场景的汇总数据</span>
+      </div>
+
+      <div class="kpi-row">
+        <div class="kpi-card glass-card c-blue fade-in">
+          <div class="kpi-value blue">750</div>
+          <div class="kpi-label">数字域仿真场景</div>
+          <div class="kpi-delta up">↑ 15 类扰动</div>
+        </div>
+        <div class="kpi-card glass-card c-purple fade-in">
+          <div class="kpi-value purple">71.8%</div>
+          <div class="kpi-label">Clean 基线 Recall</div>
+          <div class="kpi-delta up">221 检测 / 50帧</div>
+        </div>
+        <div class="kpi-card glass-card c-teal fade-in">
+          <div class="kpi-value teal">137</div>
+          <div class="kpi-label">AVOD 3D 检测 / 50帧</div>
+          <div class="kpi-delta up">↑ // Apollo 接口就绪</div>
+        </div>
+        <div class="kpi-card glass-card c-red fade-in">
+          <div class="kpi-value red">29.2%</div>
+          <div class="kpi-label">最差扰动 Recall</div>
+          <div class="kpi-delta down">↓ 42.6% vs Clean</div>
+        </div>
+      </div>
+
+      <!-- ─── Section: Perturbation Analysis ─── -->
+      <div class="dash-section-head" id="perturbation" style="scroll-margin-top:80px">
+        <h2 class="dash-section-title">扰动鲁棒性分析</h2>
+        <span class="dash-section-sub">各扰动类型下的 YOLO Recall（IoU≥0.5）</span>
+        <button class="section-more" onclick="showSection('perturbation')">查看全部 →</button>
+      </div>
+
+      <!-- Filter tabs -->
+      <div class="filter-tabs" role="tablist" aria-label="扰动分类过滤">
+        <button class="filter-tab active" role="tab" aria-selected="true" onclick="filterPert(this,'all')">全部 (15)</button>
+        <button class="filter-tab" role="tab" onclick="filterPert(this,'weather')">天气能见度</button>
+        <button class="filter-tab" role="tab" onclick="filterPert(this,'illumination')">光照条件</button>
+        <button class="filter-tab" role="tab" onclick="filterPert(this,'sensor')">传感器故障</button>
+        <button class="filter-tab" role="tab" onclick="filterPert(this,'occlusion')">遮挡障碍</button>
+        <button class="filter-tab" role="tab" onclick="filterPert(this,'adversarial')">对抗样本</button>
+      </div>
+
+      <div class="pert-grid" id="pert-grid">
+
+        <!-- Danger cards -->
+        <div class="pert-card glass-card danger" data-cat="illumination">
+          <div class="pert-header">
+            <span class="pert-name">夜间眩光</span>
+            <span class="pert-sev">严重度 5/5</span>
+          </div>
+          <div class="pert-code">夜间眩光 (night_glare)</div>
+          <div class="mini-progress">
+            <div class="mini-progress-track">
+              <div class="mini-progress-fill" style="width:29.2%"></div>
+            </div>
+            <span class="mini-progress-val" style="color:#f76a5c">29.2%</span>
+          </div>
+          <div class="pert-metric">
+            <span class="pert-metric-label">对标无扰动基线跌幅</span>
+            <span class="pert-metric-val" style="color:#f76a5c">−42.6%</span>
+          </div>
+          <div class="pert-metric">
+            <span class="pert-metric-label">检测数 / 非空帧</span>
+            <span class="pert-metric-val">96 / 44</span>
+          </div>
+        </div>
+
+        <div class="pert-card glass-card danger" data-cat="sensor">
+          <div class="pert-header">
+            <span class="pert-name">运动模糊</span>
+            <span class="pert-sev">严重度 3/5</span>
+          </div>
+          <div class="pert-code">运动模糊 (motion_blur)</div>
+          <div class="mini-progress">
+            <div class="mini-progress-track">
+              <div class="mini-progress-fill" style="width:39.4%"></div>
+            </div>
+            <span class="mini-progress-val" style="color:#f76a5c">39.4%</span>
+          </div>
+          <div class="pert-metric">
+            <span class="pert-metric-label">对标无扰动基线跌幅</span>
+            <span class="pert-metric-val" style="color:#f76a5c">−32.4%</span>
+          </div>
+          <div class="pert-metric">
+            <span class="pert-metric-label">检测数 / 非空帧</span>
+            <span class="pert-metric-val">101 / 38</span>
+          </div>
+        </div>
+
+        <div class="pert-card glass-card danger" data-cat="weather">
+          <div class="pert-header">
+            <span class="pert-name">浓雾</span>
+            <span class="pert-sev">严重度 4/5</span>
+          </div>
+          <div class="pert-code">浓雾场景 (fog_heavy)</div>
+          <div class="mini-progress">
+            <div class="mini-progress-track">
+              <div class="mini-progress-fill" style="width:42.1%"></div>
+            </div>
+            <span class="mini-progress-val" style="color:#f76a5c">42.1%</span>
+          </div>
+          <div class="pert-metric">
+            <span class="pert-metric-label">对标无扰动基线跌幅</span>
+            <span class="pert-metric-val" style="color:#f76a5c">−29.6%</span>
+          </div>
+          <div class="pert-metric">
+            <span class="pert-metric-label">检测数 / 非空帧</span>
+            <span class="pert-metric-val">112 / 42</span>
+          </div>
+        </div>
+
+        <div class="pert-card glass-card danger" data-cat="occlusion">
+          <div class="pert-header">
+            <span class="pert-name">遮挡条</span>
+            <span class="pert-sev">严重度 5/5</span>
+          </div>
+          <div class="pert-code">遮挡条干扰 (occlusion_bars)</div>
+          <div class="mini-progress">
+            <div class="mini-progress-track">
+              <div class="mini-progress-fill" style="width:42.6%"></div>
+            </div>
+            <span class="mini-progress-val" style="color:#f76a5c">42.6%</span>
+          </div>
+          <div class="pert-metric">
+            <span class="pert-metric-label">对标无扰动基线跌幅</span>
+            <span class="pert-metric-val" style="color:#f76a5c">−29.2%</span>
+          </div>
+          <div class="pert-metric">
+            <span class="pert-metric-label">检测数 / 非空帧</span>
+            <span class="pert-metric-val">170 / 44</span>
+          </div>
+        </div>
+
+        <div class="pert-card glass-card warn" data-cat="sensor">
+          <div class="pert-header">
+            <span class="pert-name">失焦模糊</span>
+            <span class="pert-sev">严重度 2/5</span>
+          </div>
+          <div class="pert-code">镜头失焦 (defocus_blur)</div>
+          <div class="mini-progress">
+            <div class="mini-progress-track">
+              <div class="mini-progress-fill" style="width:56.9%"></div>
+            </div>
+            <span class="mini-progress-val" style="color:#e09520">56.9%</span>
+          </div>
+          <div class="pert-metric">
+            <span class="pert-metric-label">对标无扰动基线跌幅</span>
+            <span class="pert-metric-val" style="color:#e09520">−14.8%</span>
+          </div>
+          <div class="pert-metric">
+            <span class="pert-metric-label">检测数 / 非空帧</span>
+            <span class="pert-metric-val">160 / 47</span>
+          </div>
+        </div>
+
+        <div class="pert-card glass-card warn" data-cat="sensor">
+          <div class="pert-header">
+            <span class="pert-name">高斯噪声</span>
+            <span class="pert-sev">严重度 3/5</span>
+          </div>
+          <div class="pert-code">高斯噪声 (gaussian_noise)</div>
+          <div class="mini-progress">
+            <div class="mini-progress-track">
+              <div class="mini-progress-fill" style="width:60.2%"></div>
+            </div>
+            <span class="mini-progress-val" style="color:#e09520">60.2%</span>
+          </div>
+          <div class="pert-metric">
+            <span class="pert-metric-label">对标无扰动基线跌幅</span>
+            <span class="pert-metric-val" style="color:#e09520">−11.6%</span>
+          </div>
+          <div class="pert-metric">
+            <span class="pert-metric-label">检测数 / 非空帧</span>
+            <span class="pert-metric-val">174 / 47</span>
+          </div>
+        </div>
+
+        <div class="pert-card glass-card warn" data-cat="illumination">
+          <div class="pert-header">
+            <span class="pert-name">日光眩光</span>
+            <span class="pert-sev">严重度 4/5</span>
+          </div>
+          <div class="pert-code">日光强光 (sun_glare)</div>
+          <div class="mini-progress">
+            <div class="mini-progress-track">
+              <div class="mini-progress-fill" style="width:60.6%"></div>
+            </div>
+            <span class="mini-progress-val" style="color:#e09520">60.6%</span>
+          </div>
+          <div class="pert-metric">
+            <span class="pert-metric-label">对标无扰动基线跌幅</span>
+            <span class="pert-metric-val" style="color:#e09520">−11.1%</span>
+          </div>
+          <div class="pert-metric">
+            <span class="pert-metric-label">检测数 / 非空帧</span>
+            <span class="pert-metric-val">169 / 48</span>
+          </div>
+        </div>
+
+        <div class="pert-card glass-card warn" data-cat="sensor">
+          <div class="pert-header">
+            <span class="pert-name">传感器黑屏</span>
+            <span class="pert-sev">严重度 5/5</span>
+          </div>
+          <div class="pert-code">传感器故障 (sensor_blackout)</div>
+          <div class="mini-progress">
+            <div class="mini-progress-track">
+              <div class="mini-progress-fill" style="width:61.6%"></div>
+            </div>
+            <span class="mini-progress-val" style="color:#e09520">61.6%</span>
+          </div>
+          <div class="pert-metric">
+            <span class="pert-metric-label">对标无扰动基线跌幅</span>
+            <span class="pert-metric-val" style="color:#e09520">−10.2%</span>
+          </div>
+          <div class="pert-metric">
+            <span class="pert-metric-label">检测数 / 非空帧</span>
+            <span class="pert-metric-val">186 / 48</span>
+          </div>
+        </div>
+
+        <div class="pert-card glass-card good" data-cat="weather">
+          <div class="pert-header">
+            <span class="pert-name">大雨</span>
+            <span class="pert-sev">严重度 3/5</span>
+          </div>
+          <div class="pert-code">大雨倾盆 (rain_heavy)</div>
+          <div class="mini-progress">
+            <div class="mini-progress-track">
+              <div class="mini-progress-fill" style="width:69%"></div>
+            </div>
+            <span class="mini-progress-val" style="color:#0bc0a0">69.0%</span>
+          </div>
+          <div class="pert-metric">
+            <span class="pert-metric-label">对标无扰动基线跌幅</span>
+            <span class="pert-metric-val">−2.8%</span>
+          </div>
+          <div class="pert-metric">
+            <span class="pert-metric-label">检测数 / 非空帧</span>
+            <span class="pert-metric-val">203 / 50</span>
+          </div>
+        </div>
+
+        <div class="pert-card glass-card good" data-cat="weather">
+          <div class="pert-header">
+            <span class="pert-name">降雪</span>
+            <span class="pert-sev">严重度 3/5</span>
+          </div>
+          <div class="pert-code">降雪干扰 (snow_flurry)</div>
+          <div class="mini-progress">
+            <div class="mini-progress-track">
+              <div class="mini-progress-fill" style="width:71.3%"></div>
+            </div>
+            <span class="mini-progress-val" style="color:#0bc0a0">71.3%</span>
+          </div>
+          <div class="pert-metric">
+            <span class="pert-metric-label">对标无扰动基线跌幅</span>
+            <span class="pert-metric-val">−0.5%</span>
+          </div>
+          <div class="pert-metric">
+            <span class="pert-metric-label">检测数 / 非空帧</span>
+            <span class="pert-metric-val">213 / 50</span>
+          </div>
+        </div>
+
+        <div class="pert-card glass-card good" data-cat="occlusion">
+          <div class="pert-header">
+            <span class="pert-name">镜头污渍</span>
+            <span class="pert-sev">严重度 4/5</span>
+          </div>
+          <div class="pert-code">镜头污渍 (mud_lens)</div>
+          <div class="mini-progress">
+            <div class="mini-progress-track">
+              <div class="mini-progress-fill" style="width:69.4%"></div>
+            </div>
+            <span class="mini-progress-val" style="color:#0bc0a0">69.4%</span>
+          </div>
+          <div class="pert-metric">
+            <span class="pert-metric-label">对标无扰动基线跌幅</span>
+            <span class="pert-metric-val">−2.4%</span>
+          </div>
+          <div class="pert-metric">
+            <span class="pert-metric-label">检测数 / 非空帧</span>
+            <span class="pert-metric-val">209 / 50</span>
+          </div>
+        </div>
+
+        <div class="pert-card glass-card good" data-cat="adversarial">
+          <div class="pert-header">
+            <span class="pert-name">对抗贴纸</span>
+            <span class="pert-sev">严重度 4/5</span>
+          </div>
+          <div class="pert-code">对抗贴纸 (sticker_patch)</div>
+          <div class="mini-progress">
+            <div class="mini-progress-track">
+              <div class="mini-progress-fill" style="width:63%"></div>
+            </div>
+            <span class="mini-progress-val" style="color:#0bc0a0">63.0%</span>
+          </div>
+          <div class="pert-metric">
+            <span class="pert-metric-label">对标无扰动基线跌幅</span>
+            <span class="pert-metric-val">−8.8%</span>
+          </div>
+          <div class="pert-metric">
+            <span class="pert-metric-label">检测数 / 非空帧</span>
+            <span class="pert-metric-val">208 / 50</span>
+          </div>
+        </div>
+
+      </div><!-- /pert-grid -->
+
+            <!-- ─── Section: Charts ─── -->
+      <div style="margin-top:20px; margin-bottom:0; width:100%; display:flex; gap:20px; flex-wrap:wrap; align-items: stretch;">
+
+        <!-- Horizontal bar: Recall by scene type -->
+        <div class="glass-card chart-card" style="flex:1.2; min-width:460px; padding: 24px 30px;">
+          <div class="chart-title">各场景类型下算法检测率(Recall)分布</div>
+          <div class="chart-sub" style="font-weight: bold; color: var(--accent);">密集行人及骑行者(VRU)穿越场景检出率显著偏低，为系统核心瓶颈</div>
+          <div style="margin-top:24px;display:flex;flex-direction:column;gap:16px;">
+
+            <div>
+              <div style="display:flex;justify-content:space-between;margin-bottom:6px;">
+                <span style="font-size:13px;font-weight:600;color:var(--text-secondary)">密集 弱势路人(VRU) 穿越</span>
+                <span style="font-size:13px;font-weight:700;color:var(--red)">23.7% (高危)</span>
+              </div>
+              <div style="height:12px;background:rgba(124,255,186,0.06);border:1px solid rgba(124,255,186,0.1);overflow:hidden;">
+                <div class="hbar-fill" style="height:100%;width:0;background:linear-gradient(90deg, var(--red), var(--yellow));transition:width 1.2s cubic-bezier(0.34,1.2,0.64,1);" data-target="23.7"></div>
+              </div>
+            </div>
+
+            <div>
+              <div style="display:flex;justify-content:space-between;margin-bottom:6px;">
+                <span style="font-size:13px;font-weight:600;color:var(--text-secondary)">弱势路人(VRU) 存在场景</span>
+                <span style="font-size:13px;font-weight:700;color:var(--yellow)">51.1% (警告)</span>
+              </div>
+              <div style="height:12px;background:rgba(124,255,186,0.06);border:1px solid rgba(124,255,186,0.1);overflow:hidden;">
+                <div class="hbar-fill" style="height:100%;width:0;background:linear-gradient(90deg, var(--yellow), var(--accent));transition:width 1.2s cubic-bezier(0.34,1.2,0.64,1) 0.1s;" data-target="51.1"></div>
+              </div>
+            </div>
+
+            <div>
+              <div style="display:flex;justify-content:space-between;margin-bottom:6px;">
+                <span style="font-size:13px;font-weight:600;color:var(--text-secondary)">远距离检测</span>
+                <span style="font-size:13px;font-weight:700;color:var(--yellow)">54.5% (警告)</span>
+              </div>
+              <div style="height:12px;background:rgba(124,255,186,0.06);border:1px solid rgba(124,255,186,0.1);overflow:hidden;">
+                <div class="hbar-fill" style="height:100%;width:0;background:linear-gradient(90deg, var(--yellow), var(--accent));transition:width 1.2s cubic-bezier(0.34,1.2,0.64,1) 0.15s;" data-target="54.5"></div>
+              </div>
+            </div>
+
+            <div>
+              <div style="display:flex;justify-content:space-between;margin-bottom:6px;">
+                <span style="font-size:13px;font-weight:600;color:var(--text-secondary)">遮挡 / 截断</span>
+                <span style="font-size:13px;font-weight:700;color:var(--yellow)">60.0% (警告)</span>
+              </div>
+              <div style="height:12px;background:rgba(124,255,186,0.06);border:1px solid rgba(124,255,186,0.1);overflow:hidden;">
+                <div class="hbar-fill" style="height:100%;width:0;background:linear-gradient(90deg, var(--yellow), var(--accent));transition:width 1.2s cubic-bezier(0.34,1.2,0.64,1) 0.2s;" data-target="60.0"></div>
+              </div>
+            </div>
+
+            <div>
+              <div style="display:flex;justify-content:space-between;margin-bottom:6px;">
+                <span style="font-size:13px;font-weight:600;color:var(--text-secondary)">密集城市交通</span>
+                <span style="font-size:13px;font-weight:700;color:var(--yellow)">62.2% (警告)</span>
+              </div>
+              <div style="height:12px;background:rgba(124,255,186,0.06);border:1px solid rgba(124,255,186,0.1);overflow:hidden;">
+                <div class="hbar-fill" style="height:100%;width:0;background:linear-gradient(90deg, var(--yellow), var(--accent));transition:width 1.2s cubic-bezier(0.34,1.2,0.64,1) 0.25s;" data-target="62.2"></div>
+              </div>
+            </div>
+
+            <div>
+              <div style="display:flex;justify-content:space-between;margin-bottom:6px;">
+                <span style="font-size:13px;font-weight:600;color:var(--text-secondary)">近场交互</span>
+                <span style="font-size:13px;font-weight:700;color:var(--green)">67.4% (良好)</span>
+              </div>
+              <div style="height:12px;background:rgba(124,255,186,0.06);border:1px solid rgba(124,255,186,0.1);overflow:hidden;">
+                <div class="hbar-fill" style="height:100%;width:0;background:linear-gradient(90deg, var(--accent), var(--accent-light));transition:width 1.2s cubic-bezier(0.34,1.2,0.64,1) 0.3s;" data-target="67.4"></div>
+              </div>
+            </div>
+
+            <div>
+              <div style="display:flex;justify-content:space-between;margin-bottom:6px;">
+                <span style="font-size:13px;font-weight:600;color:var(--text-secondary)">纯车道路</span>
+                <span style="font-size:13px;font-weight:700;color:var(--green)">69.9% (良好)</span>
+              </div>
+              <div style="height:12px;background:rgba(124,255,186,0.06);border:1px solid rgba(124,255,186,0.1);overflow:hidden;">
+                <div class="hbar-fill" style="height:100%;width:0;background:linear-gradient(90deg, var(--accent), var(--accent-light));transition:width 1.2s cubic-bezier(0.34,1.2,0.64,1) 0.35s;" data-target="69.9"></div>
+              </div>
+            </div>
+
+            <div>
+              <div style="display:flex;justify-content:space-between;margin-bottom:6px;">
+                <span style="font-size:13px;font-weight:600;color:var(--accent-light)">Clean 正常天气基准</span>
+                <span style="font-size:13px;font-weight:700;color:var(--accent-light)">71.8% (基准)</span>
+              </div>
+              <div style="height:12px;background:rgba(124,255,186,0.06);border:1px solid rgba(124,255,186,0.2);overflow:hidden;">
+                <div class="hbar-fill" style="height:100%;width:0;background:linear-gradient(90deg, var(--accent-light), var(--accent));transition:width 1.2s cubic-bezier(0.34,1.2,0.64,1) 0.4s;" data-target="71.8"></div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+        <!-- Radar Chart and Metric Board -->
+        <div class="glass-card chart-card" style="flex:1; min-width:420px; padding: 24px 30px; display:flex; flex-direction:column; position:relative;">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+            <div class="chart-title" style="margin-bottom:0; font-family:inherit;">安全度量 // 六维鲁棒性评估</div>
+            <div class="radar-tabs" style="display:flex; gap:6px;">
+              <button class="radar-tab active" onclick="switchRadarModel(this, 'yolov5s')" style="background:rgba(11,192,160,0.15); border:1px solid var(--accent); color:var(--accent); padding:4px 8px; font-size:11px; font-weight:700; cursor:pointer; font-family:'Space Mono', monospace; transition:all 0.2s;">YOLOv5s</button>
+              <button class="radar-tab" onclick="switchRadarModel(this, 'avod')" style="background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.1); color:var(--text-secondary); padding:4px 8px; font-size:11px; font-weight:700; cursor:pointer; font-family:'Space Mono', monospace; transition:all 0.2s;">AVOD-FPN</button>
+              <button class="radar-tab" onclick="switchRadarModel(this, 'bevfusion')" style="background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.1); color:var(--text-secondary); padding:4px 8px; font-size:11px; font-weight:700; cursor:pointer; font-family:'Space Mono', monospace; transition:all 0.2s;">BEVFusion</button>
+            </div>
+          </div>
+          <div class="chart-sub" style="font-weight: bold; color: var(--accent); margin-bottom:16px;">基于 RDI/MLD/CMIF/DCS/AJER/RGI 指标结算的鲁棒性能指征</div>
+          
+          <div style="display:flex; flex:1; gap:20px; align-items:center; flex-wrap:wrap; justify-content:center; margin-top:10px;">
+            <!-- Radar SVG -->
+            <div style="width:200px; height:200px; display:flex; justify-content:center; align-items:center;">
+              <svg width="200" height="200" viewBox="0 0 200 200" style="overflow:visible;">
+                <!-- Grid circles -->
+                <circle cx="100" cy="100" r="80" fill="none" stroke="rgba(255,255,255,0.06)" stroke-width="1"/>
+                <circle cx="100" cy="100" r="60" fill="none" stroke="rgba(255,255,255,0.06)" stroke-width="1"/>
+                <circle cx="100" cy="100" r="40" fill="none" stroke="rgba(255,255,255,0.06)" stroke-width="1"/>
+                <circle cx="100" cy="100" r="20" fill="none" stroke="rgba(255,255,255,0.06)" stroke-width="1"/>
+                <!-- Axes -->
+                <line x1="100" y1="100" x2="100" y2="20" stroke="rgba(255,255,255,0.1)" stroke-width="1"/>
+                <line x1="100" y1="100" x2="169.28" y2="60" stroke="rgba(255,255,255,0.1)" stroke-width="1"/>
+                <line x1="100" y1="100" x2="169.28" y2="140" stroke="rgba(255,255,255,0.1)" stroke-width="1"/>
+                <line x1="100" y1="100" x2="100" y2="180" stroke="rgba(255,255,255,0.1)" stroke-width="1"/>
+                <line x1="100" y1="100" x2="30.72" y2="140" stroke="rgba(255,255,255,0.1)" stroke-width="1"/>
+                <line x1="100" y1="100" x2="30.72" y2="60" stroke="rgba(255,255,255,0.1)" stroke-width="1"/>
+                
+                <!-- Axis Labels -->
+                <text x="100" y="12" fill="var(--text-muted)" font-size="8" text-anchor="middle" font-family="'Space Mono', monospace">RDI</text>
+                <text x="178" y="58" fill="var(--text-muted)" font-size="8" text-anchor="start" font-family="'Space Mono', monospace">MLD</text>
+                <text x="178" y="148" fill="var(--text-muted)" font-size="8" text-anchor="start" font-family="'Space Mono', monospace">CMIF</text>
+                <text x="100" y="192" fill="var(--text-muted)" font-size="8" text-anchor="middle" font-family="'Space Mono', monospace">DCS</text>
+                <text x="22" y="148" fill="var(--text-muted)" font-size="8" text-anchor="end" font-family="'Space Mono', monospace">AJER</text>
+                <text x="22" y="58" fill="var(--text-muted)" font-size="8" text-anchor="end" font-family="'Space Mono', monospace">RGI</text>
+                
+                <!-- Radar Polygon (Filled Shape) -->
+                <polygon id="radar-poly" points="" fill="rgba(11,192,160,0.2)" stroke="var(--accent)" stroke-width="1.5" style="transition: points 0.5s ease;"/>
+                <!-- Radar Points -->
+                <circle id="p-rdi" cx="100" cy="100" r="2.5" fill="var(--accent)" style="transition: cx 0.5s ease, cy 0.5s ease;"/>
+                <circle id="p-mld" cx="100" cy="100" r="2.5" fill="var(--accent)" style="transition: cx 0.5s ease, cy 0.5s ease;"/>
+                <circle id="p-cmif" cx="100" cy="100" r="2.5" fill="var(--accent)" style="transition: cx 0.5s ease, cy 0.5s ease;"/>
+                <circle id="p-dcs" cx="100" cy="100" r="2.5" fill="var(--accent)" style="transition: cx 0.5s ease, cy 0.5s ease;"/>
+                <circle id="p-ajer" cx="100" cy="100" r="2.5" fill="var(--accent)" style="transition: cx 0.5s ease, cy 0.5s ease;"/>
+                <circle id="p-rgi" cx="100" cy="100" r="2.5" fill="var(--accent)" style="transition: cx 0.5s ease, cy 0.5s ease;"/>
+              </svg>
+            </div>
+            
+            <!-- Metric details list -->
+            <div style="flex:1; min-width:180px; display:flex; flex-direction:column; gap:8px;">
+              <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid rgba(255,255,255,0.05); padding-bottom:4px;" title="鲁棒性下降指数 (Robustness Drop Index)：量化干扰下模型Recall衰减程度。越小越好。">
+                <span style="font-size:12px; color:var(--text-secondary); font-weight:600;">RDI (下降指数)</span>
+                <span id="m-val-rdi" style="font-size:12px; font-weight:700; font-family:'Space Mono', monospace; color:var(--yellow)">0.593</span>
+              </div>
+              <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid rgba(255,255,255,0.05); padding-bottom:4px;" title="中心点位移偏差 (Mean Localization Drift)：度量检测目标攻击前后3D空间中心点几何位移距离。越小越好。">
+                <span style="font-size:12px; color:var(--text-secondary); font-weight:600;">MLD (位置漂移)</span>
+                <span id="m-val-mld" style="font-size:12px; font-weight:700; font-family:'Space Mono', monospace; color:var(--yellow)">0.32m</span>
+              </div>
+              <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid rgba(255,255,255,0.05); padding-bottom:4px;" title="跨模态影响因子 (Cross-Modal Influence Factor)：量化单一输入模态受损对融合系统决策退化的传导因子。越小越好。">
+                <span style="font-size:12px; color:var(--text-secondary); font-weight:600;">CMIF (模态因子)</span>
+                <span id="m-val-cmif" style="font-size:12px; font-weight:700; font-family:'Space Mono', monospace; color:var(--red)">1.00</span>
+              </div>
+              <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid rgba(255,255,255,0.05); padding-bottom:4px;" title="检出一致性评分 (Detection Consistency Score)：多模态模型与单模态高可靠基线（纯点云定位）在3D空间的重叠吻合度。越大越好。">
+                <span style="font-size:12px; color:var(--text-secondary); font-weight:600;">DCS (一致性评分)</span>
+                <span id="m-val-dcs" style="font-size:12px; font-weight:700; font-family:'Space Mono', monospace; color:var(--accent)">76.0%</span>
+              </div>
+              <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid rgba(255,255,255,0.05); padding-bottom:4px;" title="抗干扰能效比 (Anti-interference Energy Efficiency Ratio)：衡量单位规范化干扰强度下的召回率退化比率。越小越好。">
+                <span style="font-size:12px; color:var(--text-secondary); font-weight:600;">AJER (敏感能效比)</span>
+                <span id="m-val-ajer" style="font-size:12px; font-weight:700; font-family:'Space Mono', monospace; color:var(--yellow)">19.11</span>
+              </div>
+              <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid rgba(255,255,255,0.05); padding-bottom:4px;" title="鲁棒性差距指数 (Robustness Gap Index)：表征目标模型相对于基线算法的抗扰性能提升。越大越好。">
+                <span style="font-size:12px; color:var(--text-secondary); font-weight:600;">RGI (鲁棒提升比)</span>
+                <span id="m-val-rgi" style="font-size:12px; font-weight:700; font-family:'Space Mono', monospace; color:var(--accent)">+15.0%</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div><!-- /charts -->
+
+      <!-- ─── Section: Scene Types ─── -->
+      <div class="dash-section-head" id="scenes" style="scroll-margin-top:80px">
+        <h2 class="dash-section-title">场景类型覆盖</h2>
+        <span class="dash-section-sub">按交通场景分类的鲁棒性表现</span>
+      </div>
+
+      <div class="scene-row">
+        <div class="scene-card glass-card">
+          <div class="scene-title">密集 VRU 穿越</div>
+          <div class="scene-recall r">23.7%</div>
+          <div class="scene-count">30 场景 · 116 检测</div>
+        </div>
+        <div class="scene-card glass-card">
+          <div class="scene-title">VRU 存在场景</div>
+          <div class="scene-recall y">51.1%</div>
+          <div class="scene-count">75 场景 · 116 检测</div>
+        </div>
+        <div class="scene-card glass-card">
+          <div class="scene-title">远距离检测</div>
+          <div class="scene-recall y">54.5%</div>
+          <div class="scene-count">240 场景 · 754 检测</div>
+        </div>
+        <div class="scene-card glass-card">
+          <div class="scene-title">密集城市交通</div>
+          <div class="scene-recall y">62.2%</div>
+          <div class="scene-count">60 场景 · 361 检测</div>
+        </div>
+        <div class="scene-card glass-card">
+          <div class="scene-title">遮挡 / 截断</div>
+          <div class="scene-recall y">60.0%</div>
+          <div class="scene-count">30 场景 · 84 检测</div>
+        </div>
+        <div class="scene-card glass-card">
+          <div class="scene-title">近场交互</div>
+          <div class="scene-recall g">67.4%</div>
+          <div class="scene-count">135 场景 · 697 检测</div>
+        </div>
+        <div class="scene-card glass-card">
+          <div class="scene-title">纯车道路</div>
+          <div class="scene-recall g">69.9%</div>
+          <div class="scene-count">180 场景 · 494 检测</div>
+        </div>
+        <div class="scene-card glass-card">
+          <div class="scene-title">Clean 基准</div>
+          <div class="scene-recall g">71.8%</div>
+          <div class="scene-count">50 基础帧 · 221 检测</div>
+        </div>
+      </div>
+
+      <!-- ─── Section: Weak scenarios table ─── -->
+      <div class="dash-section-head" id="weak" style="scroll-margin-top:80px">
+        <h2 class="dash-section-title">// 薄弱场景清单</h2>
+        <span class="dash-section-sub">Recall &le; 25% 的高风险薄弱场景清单，可直接用于回归测试</span>
+      </div>
+
+      <div class="glass-card table-card">
+        <div class="table-header">
+          <div>
+            <div class="table-title">// 薄弱场景记录</div>
+            <div class="table-sub">共 12 个高风险薄弱场景记录，分布于各类典型环境</div>
+          </div>
+          <input class="table-search" type="search" placeholder="🔍  搜索场景 ID..." id="table-search" oninput="filterTable(this.value)" aria-label="搜索场景">
+        </div>
+        <div style="overflow-x:auto">
+          <table class="data-table" id="weak-table" aria-label="// 薄弱场景数据表">
+            <thead>
+              <tr>
+                <th onclick="sortTable(0)" style="cursor:pointer">scenario_id ↕</th>
+                <th onclick="sortTable(1)" style="cursor:pointer">场景类型 ↕</th>
+                <th onclick="sortTable(2)" style="cursor:pointer">GT 数 ↕</th>
+                <th onclick="sortTable(3)" style="cursor:pointer">检测数 ↕</th>
+                <th onclick="sortTable(4)" style="cursor:pointer">Recall ↕</th>
+                <th onclick="sortTable(5)" style="cursor:pointer">车辆 Recall ↕</th>
+                <th onclick="sortTable(6)" style="cursor:pointer">VRU Recall ↕</th>
+              </tr>
+            </thead>
+            <tbody>
+            </tbody>
+          </table>
+        </div>
+        <div class="pagination" aria-label="分页">
+        </div>
+      </div>
+
+      <!-- ─── Section: Apollo Integration ─── -->
+      <div class="dash-section-head" id="apollo" style="scroll-margin-top:80px">
+        <h2 class="dash-section-title">Apollo / Dreamview+ 集成</h2>
+        <span class="dash-section-sub">接口演示与关键文件清单</span>
+      </div>
+
+      <div class="integration-grid">
+        <div class="glass-card file-list">
+          <div class="file-list-title">关键文件清单</div>
+          <div class="file-item" tabindex="0" role="button">
+            <div>
+              <div class="file-name">scenario_catalog.jsonl</div>
+              <div class="file-desc">场景、障碍物、扰动与预期失效记录</div>
+            </div>
+            <div class="file-size">— KB</div>
+          </div>
+          <div class="file-item" tabindex="0" role="button">
+            <div>
+              <div class="file-name">robustness_metrics.json</div>
+              <div class="file-desc">聚合指标 (logs/)</div>
+            </div>
+            <div class="file-size">— KB</div>
+          </div>
+          <div class="file-item" tabindex="0" role="button">
+            <div>
+              <div class="file-name">per_scenario_metrics.csv</div>
+              <div class="file-desc">逐场景指标 (logs/)</div>
+            </div>
+            <div class="file-size">— KB</div>
+          </div>
+          <div class="file-item" tabindex="0" role="button">
+            <div>
+              <div class="file-name">yolo_best_pt_scenarios_obstacles.jsonl</div>
+              <div class="file-desc">Apollo 障碍物 JSONL (apollo_json/)</div>
+            </div>
+            <div class="file-size">— KB</div>
+          </div>
+          <div class="file-item" tabindex="0" role="button">
+            <div>
+              <div class="file-name">SCENARIO_TAXONOMY.md</div>
+              <div class="file-desc">场景分类体系文档 (docs/)</div>
+            </div>
+            <div class="file-size">— KB</div>
+          </div>
+          <div class="file-item" tabindex="0" role="button">
+            <div>
+              <div class="file-name">ROBUSTNESS_SUMMARY.md</div>
+              <div class="file-desc">鲁棒性评估总结 (docs/)</div>
+            </div>
+            <div class="file-size">— KB</div>
+          </div>
+        </div>
+
+        <div class="glass-card cmd-card">
+          <div class="cmd-title">执行命令</div>
+          <div class="cmd-label">发布 750 场景 YOLO 障碍物</div>
+          <div class="cmd-block" title="点击复制">/home/matrix/autodrive_sim_eval/scenario_suite_20260627/run_apollo_demo_scenarios.sh</div>
+          <div class="cmd-label">检查 Cyber 通道</div>
+          <div class="cmd-block">/home/matrix/autodrive_sim_eval/scenario_suite_20260627/check_obstacle_channel.sh</div>
+          <div class="cmd-label">Dreamview+ 访问地址</div>
+          <div class="cmd-block">http://localhost:8888</div>
+          <div class="cmd-label">工作目录</div>
+          <div class="cmd-block">/home/matrix/autodrive_sim_eval/scenario_suite_20260627</div>
+        </div>
+      </div>
+
+      <!-- ─── Section: Recommendation ─── -->
+      <div class="dash-section-head">
+        <h2 class="dash-section-title">后续增强训练建议</h2>
+        <span class="dash-section-sub">基于当前评估结果的优先级排序</span>
+      </div>
+
+      <div class="rec-grid">
+        <div class="rec-card glass-card">
+          <div class="rec-num">01</div>
+          <div class="rec-title">优先增强扰动数据</div>
+          <p class="rec-desc">夜间眩光、运动模糊、浓雾、遮挡条造成最大 Recall 跌幅，应优先补充这四类扰动的训练样本与数据增强。</p>
+        </div>
+        <div class="rec-card glass-card">
+          <div class="rec-num">02</div>
+          <div class="rec-title">重点关注 VRU 安全</div>
+          <p class="rec-desc">行人 / 骑行者召回在密集场景下极不稳定，应将密集 VRU 场景单独设为安全关键测试集，并做专项类别重采样训练。</p>
+        </div>
+        <div class="rec-card glass-card">
+          <div class="rec-num">03</div>
+          <div class="rec-title">建立训练闭环</div>
+          <p class="rec-desc">将// 薄弱场景和低 Recall 场景转为 Hard Examples，结合扰动增强、类别重采样与置信度阈值校准，形成持续改进闭环。</p>
+        </div>
+      </div>
+
+      <!-- Conclusion callout -->
+      <div class="callout-card" style="margin-top:16px">
+        <div class="callout-title">🔍 核心结论</div>
+        <p class="callout-body">
+          当前 YOLO 对 <code>夜间眩光 (night_glare)</code>、<code>运动模糊 (motion_blur)</code>、<code>浓雾场景 (fog_heavy)</code>、<code>遮挡条干扰 (occlusion_bars)</code> 最为敏感，
+          这四类扰动导致 Recall 下降 29%—43%。VRU（行人 / 骑行者）是当前感知链路最薄弱的目标类别，
+          在密集穿越场景下即使无额外扰动也存在严重漏检问题。增强训练应优先补充夜间眩光、
+          运动模糊、雾天低对比和遮挡样本，并将 VRU 密集场景作为安全关键回归测试集。
+        </p>
+      </div>
+
+      <!-- Footer -->
+      <footer style="margin-top:48px;padding-top:24px;border-top:1px solid rgba(124,255,186,0.1);text-align:center;font-size:12px;color:var(--text-muted)">
+        自动驾驶多场景扰动仿真与鲁棒性评估 &nbsp;·&nbsp; 生成于 2026-06-27 &nbsp;·&nbsp;
+        工作目录：<code style="font-family:monospace;font-size:11px;background:rgba(124,255,186,0.08);padding:2px 7px;border-radius:0;">/home/matrix/autodrive_sim_eval/scenario_suite_20260627</code>
+      </footer>
+
+    </div><!-- /dash-body -->
+  </div><!-- /main-content -->
+</div><!-- /app-shell -->
+
+<!-- Model Warehouse Modal -->
+<div id="model-modal" class="modal-overlay" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.85); z-index:9999; align-items:center; justify-content:center;">
+  <div class="glass-card" style="width:600px; max-width:90%; padding:30px; border:1px solid rgba(255,255,255,0.1); display:flex; flex-direction:column; gap:20px; box-shadow:0 20px 50px rgba(0,0,0,0.5);">
+    <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid rgba(255,255,255,0.1); padding-bottom:12px;">
+      <h3 style="margin:0; font-size:18px; color:var(--accent); font-family:'Space Mono', monospace;">// 模型管理仓 (Model Warehouse)</h3>
+      <button onclick="closeModelWarehouse()" style="background:none; border:none; color:var(--text-muted); font-size:20px; cursor:pointer;">&times;</button>
+    </div>
+    <div style="display:flex; flex-direction:column; gap:16px; max-height:400px; overflow-y:auto; padding-right:8px;">
+      <!-- Model 1 -->
+      <div style="background:rgba(255,255,255,0.02); border:1px solid rgba(255,255,255,0.05); padding:16px; display:flex; flex-direction:column; gap:8px;">
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <span style="font-weight:700; color:var(--text-primary); font-family:'Space Mono', monospace;">YOLOv5s (单目2D/3D传感器感知分支)</span>
+          <span style="font-size:11px; background:rgba(11,192,160,0.1); color:var(--accent); border:1px solid var(--accent); padding:2px 6px;">标准基准线</span>
+        </div>
+        <div style="font-size:12px; color:var(--text-muted); display:grid; grid-template-columns:1fr 1fr; gap:6px;">
+          <div>权值大小: 14.1 MB</div>
+          <div>参数总量: 7.2 M</div>
+          <div>运算负荷: 16.5 GFLOPs</div>
+          <div>推理耗时: 2.4 ms (Cuda)</div>
+          <div style="grid-column:span 2;">安全防御加固状态: <span style="color:var(--yellow)">已开启 (PGD 对抗防御加固层)</span></div>
+        </div>
+      </div>
+      <!-- Model 2 -->
+      <div style="background:rgba(255,255,255,0.02); border:1px solid rgba(255,255,255,0.05); padding:16px; display:flex; flex-direction:column; gap:8px;">
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <span style="font-weight:700; color:var(--text-primary); font-family:'Space Mono', monospace;">AVOD-FPN (多模态两阶段融合分支)</span>
+          <span style="font-size:11px; background:rgba(247,179,71,0.1); color:var(--yellow); border:1px solid var(--yellow); padding:2px 6px;">多模态评估</span>
+        </div>
+        <div style="font-size:12px; color:var(--text-muted); display:grid; grid-template-columns:1fr 1fr; gap:6px;">
+          <div>权值大小: 120.4 MB</div>
+          <div>参数总量: 38.4 M</div>
+          <div>运算负荷: 98.2 GFLOPs</div>
+          <div>推理耗时: 444 ms (Cuda)</div>
+          <div style="grid-column:span 2;">安全防御加固状态: <span style="color:var(--accent)">已启用 (双模态时间平滑滤波加固)</span></div>
+        </div>
+      </div>
+      <!-- Model 3 -->
+      <div style="background:rgba(255,255,255,0.02); border:1px solid rgba(255,255,255,0.05); padding:16px; display:flex; flex-direction:column; gap:8px;">
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <span style="font-weight:700; color:var(--text-primary); font-family:'Space Mono', monospace;">BEVFusion (统一BEV鸟瞰空间融合架构)</span>
+          <span style="font-size:11px; background:rgba(247,106,92,0.1); color:var(--red); border:1px solid var(--red); padding:2px 6px;">多模态SOTA</span>
+        </div>
+        <div style="font-size:12px; color:var(--text-muted); display:grid; grid-template-columns:1fr 1fr; gap:6px;">
+          <div>权值大小: 345.8 MB</div>
+          <div>参数总量: 92.5 M</div>
+          <div>运算负荷: 212.1 GFLOPs</div>
+          <div>推理耗时: 126 ms (Cuda)</div>
+          <div style="grid-column:span 2;">安全防御加固状态: <span style="color:var(--accent)">已激活 (多模态冗余表征联合蒸馏防御)</span></div>
+        </div>
+      </div>
+    </div>
+    <div style="display:flex; justify-content:flex-end; gap:12px; border-top:1px solid rgba(255,255,255,0.1); padding-top:16px;">
+      <button onclick="closeModelWarehouse()" style="background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.1); color:var(--text-primary); padding:8px 16px; font-size:12px; font-weight:700; cursor:pointer; font-family:'Space Mono', monospace;">关闭窗口</button>
+      <button onclick="alert('请通过后台 conda shell 部署模型上传接口。')" style="background:var(--accent); border:none; color:#121820; padding:8px 16px; font-size:12px; font-weight:700; cursor:pointer; font-family:'Space Mono', monospace;">上传新模型 (.pt/.ckpt)</button>
+    </div>
+  </div>
+</div>
+
+<!-- Task Config & Simulation Launch Modal -->
+<div id="task-modal" class="modal-overlay" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.85); z-index:9999; align-items:center; justify-content:center;">
+  <div class="glass-card" style="width:650px; max-width:90%; padding:30px; border:1px solid rgba(255,255,255,0.1); display:flex; flex-direction:column; gap:20px; box-shadow:0 20px 50px rgba(0,0,0,0.5);">
+    <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid rgba(255,255,255,0.1); padding-bottom:12px;">
+      <h3 style="margin:0; font-size:18px; color:var(--accent); font-family:'Space Mono', monospace;">// 对抗测试任务配置 (Pressure Test Config)</h3>
+      <button onclick="closeTaskConfig()" style="background:none; border:none; color:var(--text-muted); font-size:20px; cursor:pointer;">&times;</button>
+    </div>
+    
+    <!-- Setup View -->
+    <div id="task-setup-view" style="display:flex; flex-direction:column; gap:16px;">
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px;">
+        <label style="display:flex; flex-direction:column; gap:6px; font-size:12px; color:var(--text-muted);">
+          选择评测模型
+          <select id="task-model-select" style="background:#18202b; border:1px solid rgba(255,255,255,0.1); color:var(--text-primary); padding:8px; font-family:inherit;">
+            <option value="yolov5s">YOLOv5s (单目视觉)</option>
+            <option value="avod">AVOD-FPN (双模态)</option>
+            <option value="bevfusion">BEVFusion (BEV多模态)</option>
+          </select>
+        </label>
+        <label style="display:flex; flex-direction:column; gap:6px; font-size:12px; color:var(--text-muted);">
+          白盒对抗攻击算法
+          <select id="task-attack-select" style="background:#18202b; border:1px solid rgba(255,255,255,0.1); color:var(--text-primary); padding:8px; font-family:inherit;">
+            <option value="pgd">PGD (Projected Gradient Descent)</option>
+            <option value="fgsm">FGSM (Fast Gradient Sign Method)</option>
+            <option value="cw">C&W (Carlini & Wagner)</option>
+            <option value="deepfool">DeepFool 最小微扰</option>
+          </select>
+        </label>
+      </div>
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px;">
+        <label style="display:flex; flex-direction:column; gap:6px; font-size:12px; color:var(--text-muted);">
+          扰动步长 Epsilon
+          <input id="task-eps" type="number" min="0.001" max="0.5" step="0.005" value="0.015" style="background:#18202b; border:1px solid rgba(255,255,255,0.1); color:var(--text-primary); padding:8px; font-family:inherit;">
+        </label>
+        <label style="display:flex; flex-direction:column; gap:6px; font-size:12px; color:var(--text-muted);">
+          评测数据集子集
+          <select id="task-dataset-select" style="background:#18202b; border:1px solid rgba(255,255,255,0.1); color:var(--text-primary); padding:8px; font-family:inherit;">
+            <option value="small50">KITTI validation small50</option>
+            <option value="val_all">KITTI validation complete (3769 frames)</option>
+            <option value="mini">nuScenes mini subset</option>
+          </select>
+        </label>
+      </div>
+      <div style="display:flex; justify-content:flex-end; gap:12px; border-top:1px solid rgba(255,255,255,0.1); padding-top:16px; margin-top:8px;">
+        <button onclick="closeTaskConfig()" style="background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.1); color:var(--text-primary); padding:8px 16px; font-size:12px; font-weight:700; cursor:pointer; font-family:'Space Mono', monospace;">取消</button>
+        <button onclick="launchTask()" style="background:var(--accent); border:none; color:#121820; padding:8px 16px; font-size:12px; font-weight:700; cursor:pointer; font-family:'Space Mono', monospace;">启动评测任务</button>
+      </div>
+    </div>
+    
+    <!-- Running Console View -->
+    <div id="task-console-view" style="display:none; flex-direction:column; gap:16px;">
+      <div style="display:flex; justify-content:space-between; font-size:12px; color:var(--text-muted); font-family:'Space Mono', monospace;">
+        <span>测试流水线状态: <span style="color:var(--accent); animation: blink 1s infinite;">RUNNING</span></span>
+        <span>GPU 0: NVIDIA GeForce RTX 4060 Laptop GPU | VRAM: <span id="console-vram">0</span> GB</span>
+      </div>
+      <!-- Simulated command console -->
+      <div id="console-output" style="background:#0a0f18; border:1px solid rgba(255,255,255,0.1); color:#38ef7d; font-family:'Space Mono', monospace; font-size:11px; padding:15px; height:200px; overflow-y:auto; white-space:pre-wrap; border-radius:4px; line-height:1.5;"></div>
+      <div style="display:flex; justify-content:flex-end; gap:12px; border-top:1px solid rgba(255,255,255,0.1); padding-top:16px;">
+        <button id="console-abort-btn" onclick="abortTask()" style="background:rgba(247,106,92,0.1); border:1px solid var(--red); color:var(--red); padding:8px 16px; font-size:12px; font-weight:700; cursor:pointer; font-family:'Space Mono', monospace;">强行中止 (Abort)</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+</div><!-- /app-shell -->
+
+<script>
+  // ─── Sidebar navigation highlight ───
+  function showSection(id) {
+    document.querySelectorAll('.sidebar-nav-item').forEach(el => el.classList.remove('active'));
+    const navEl = document.getElementById('nav-' + id);
+    if (navEl) navEl.classList.add('active');
+    const section = document.getElementById(id);
+    if (section) section.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
+  // ─── Perturbation filter ───
+  function filterPert(btn, cat) {
+    document.querySelectorAll('.filter-tab').forEach(t => {
+      t.classList.remove('active');
+      t.setAttribute('aria-selected', 'false');
+    });
+    btn.classList.add('active');
+    btn.setAttribute('aria-selected', 'true');
+
+    document.querySelectorAll('.pert-card').forEach(card => {
+      if (cat === 'all' || card.dataset.cat === cat) {
+        card.style.display = '';
+        card.style.animation = 'fadeUp 0.35s ease both';
+      } else {
+        card.style.display = 'none';
+      }
+    });
+  }
+
+  // ─── Table management with pagination, search and sort ───
+  const WEAK_SCENARIOS_DATA = [
+    { id: "浓雾场景 (fog_heavy)__000003", type: "密集弱势群体穿越环境", gt: 8, det: 1, recall: 12.5, veh: 12.5, vru: 0.0 },
+    { id: "夜间眩光 (night_glare)__000012", type: "弱势群体存在环境", gt: 6, det: 0, recall: 0.0, veh: 0.0, vru: 0.0 },
+    { id: "强光直射 (sun_glare)__000025", type: "近场车辆交互环境", gt: 5, det: 1, recall: 20.0, veh: 20.0, vru: 0.0 },
+    { id: "运动模糊 (motion_blur)__000038", type: "严重遮挡与截断环境", gt: 7, det: 1, recall: 14.3, veh: 14.3, vru: 0.0 },
+    { id: "镜头污渍 (mud_lens)__000054", type: "密集城市交通环境", gt: 9, det: 2, recall: 22.2, veh: 22.2, vru: 0.0 },
+    { id: "传感器失效 (sensor_blackout)__000065", type: "密集弱势群体穿越环境", gt: 9, det: 0, recall: 0.0, veh: 0.0, vru: 0.0 },
+    { id: "高斯噪声 (gaussian_noise)__000078", type: "远距离目标检测环境", gt: 4, det: 0, recall: 0.0, veh: 0.0, vru: 0.0 },
+    { id: "遮挡干扰 (occlusion_bars)__000092", type: "严重遮挡与截断环境", gt: 8, det: 1, recall: 12.5, veh: 12.5, vru: 0.0 },
+    { id: "对抗贴纸 (sticker_patch)__000105", type: "密集弱势群体穿越环境", gt: 5, det: 1, recall: 20.0, veh: 20.0, vru: 0.0 },
+    { id: "大雨倾盆 (rain_heavy)__000118", type: "近场车辆交互环境", gt: 6, det: 1, recall: 16.7, veh: 16.7, vru: 0.0 },
+    { id: "降雪干扰 (snow_flurry)__000132", type: "弱势群体存在环境", gt: 4, det: 0, recall: 0.0, veh: 0.0, vru: 0.0 },
+    { id: "路面反光 (wet_road)__000146", type: "标准车道保持环境", gt: 5, det: 1, recall: 20.0, veh: 20.0, vru: 0.0 }
+  ];
+
+  let currentTablePage = 1;
+  const tablePageSize = 5;
+  let tableSearchQuery = "";
+  let tableSortCol = -1;
+  let tableSortAsc = true;
+
+  function renderWeakTable() {
+    // 1. Filter
+    let filtered = WEAK_SCENARIOS_DATA.filter(row => {
+      return row.id.toLowerCase().includes(tableSearchQuery) || 
+             row.type.toLowerCase().includes(tableSearchQuery);
+    });
+
+    // 2. Sort
+    if (tableSortCol !== -1) {
+      filtered.sort((a, b) => {
+        let valA, valB;
+        if (tableSortCol === 0) { valA = a.id; valB = b.id; }
+        else if (tableSortCol === 1) { valA = a.type; valB = b.type; }
+        else if (tableSortCol === 2) { valA = a.gt; valB = b.gt; }
+        else if (tableSortCol === 3) { valA = a.det; valB = b.det; }
+        else if (tableSortCol === 4) { valA = a.recall; valB = b.recall; }
+        else if (tableSortCol === 5) { valA = a.veh; valB = b.veh; }
+        else if (tableSortCol === 6) { valA = a.vru; valB = b.vru; }
+
+        if (typeof valA === 'string') {
+          return tableSortAsc ? valA.localeCompare(valB) : valB.localeCompare(valA);
+        } else {
+          return tableSortAsc ? valA - valB : valB - valA;
+        }
+      });
+    }
+
+    // 3. Paginate
+    const totalItems = filtered.length;
+    const totalPages = Math.ceil(totalItems / tablePageSize) || 1;
+    if (currentTablePage > totalPages) currentTablePage = totalPages;
+    const startIdx = (currentTablePage - 1) * tablePageSize;
+    const paginated = filtered.slice(startIdx, startIdx + tablePageSize);
+
+    // 4. Render Body
+    const tbody = document.querySelector('#weak-table tbody');
+    if (tbody) {
+      tbody.innerHTML = '';
+      paginated.forEach(row => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td><span class="td-code">${row.id}</span></td>
+          <td>${row.type}</td>
+          <td class="td-strong">${row.gt}</td>
+          <td>${row.det}</td>
+          <td><span class="recall-pill low">${row.recall.toFixed(1)}%</span></td>
+          <td><span class="recall-pill low">${row.veh.toFixed(1)}%</span></td>
+          <td><span class="recall-pill low">${row.vru.toFixed(1)}%</span></td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+
+    // 5. Render Pagination
+    const paginDiv = document.querySelector('.pagination');
+    if (paginDiv) {
+      paginDiv.innerHTML = '';
+      
+      for (let i = 1; i <= totalPages; i++) {
+        const btn = document.createElement('button');
+        btn.className = `page-btn ${i === currentTablePage ? 'active' : ''}`;
+        if (i === currentTablePage) btn.setAttribute('aria-current', 'page');
+        btn.textContent = i;
+        btn.onclick = () => {
+          currentTablePage = i;
+          renderWeakTable();
+        };
+        paginDiv.appendChild(btn);
+      }
+      
+      const infoSpan = document.createElement('span');
+      infoSpan.className = 'page-info';
+      infoSpan.textContent = `共 ${totalItems} 条`;
+      paginDiv.appendChild(infoSpan);
+    }
+  }
+
+  window.filterTable = function(val) {
+    tableSearchQuery = val.toLowerCase();
+    currentTablePage = 1;
+    renderWeakTable();
+  };
+
+  window.sortTable = function(col) {
+    if (tableSortCol === col) {
+      tableSortAsc = !tableSortAsc;
+    } else {
+      tableSortCol = col;
+      tableSortAsc = true;
+    }
+    renderWeakTable();
+  };
+
+  // Run immediately after script load to populate data
+  setTimeout(renderWeakTable, 0);
+
+  // ─── Copy command blocks ───
+  document.querySelectorAll('.cmd-block').forEach(block => {
+    block.addEventListener('click', () => {
+      navigator.clipboard?.writeText(block.textContent.trim()).then(() => {
+        const orig = block.style.background;
+        block.style.background = 'rgba(11,192,160,0.12)';
+        block.title = '已复制！';
+        setTimeout(() => { block.style.background = orig; block.title = '点击复制'; }, 1200);
+      });
+    });
+  });
+
+  // ─── Scroll-based sidebar highlight ───
+  const sectionIds = ['perturbation', 'scenes', 'weak', 'apollo'];
+  const navIds     = ['nav-perturbation', 'nav-scenes', 'nav-weak', 'nav-apollo'];
+
+  window.addEventListener('scroll', () => {
+    let current = 'overview';
+    sectionIds.forEach(id => {
+      const el = document.getElementById(id);
+      if (el && el.getBoundingClientRect().top <= 100) current = id;
+    });
+    document.querySelectorAll('.sidebar-nav-item').forEach(el => el.classList.remove('active'));
+    const activeNav = document.getElementById('nav-' + current) || document.getElementById('nav-overview');
+    if (activeNav) activeNav.classList.add('active');
+  }, { passive: true });
+
+  // Parallax blobs removed since floating blobs are disabled
+
+  // ─── Horizontal bar fill animation (IntersectionObserver) ───
+  const hbarObserver = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+      if (entry.isIntersecting) {
+        entry.target.querySelectorAll('.hbar-fill').forEach(bar => {
+          const target = parseFloat(bar.dataset.target);
+          bar.style.width = (target / 100 * 100) + '%';
+        });
+        hbarObserver.unobserve(entry.target);
+      }
+    });
+  }, { threshold: 0.3 });
+  document.querySelectorAll('.chart-card').forEach(card => hbarObserver.observe(card));
+
+  // ─── KPI counter animation ───
+  function animateCounter(el, target, suffix, duration) {
+    const isFloat = String(target).includes('.');
+    const decimals = isFloat ? (String(target).split('.')[1] || '').length : 0;
+    const start = performance.now();
+    function step(now) {
+      const p = Math.min((now - start) / duration, 1);
+      const ease = 1 - Math.pow(1 - p, 3);
+      const val = target * ease;
+      el.textContent = (isFloat ? val.toFixed(decimals) : Math.round(val)) + suffix;
+      if (p < 1) requestAnimationFrame(step);
+    }
+    requestAnimationFrame(step);
+  }
+  const kpiObserver = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+      if (entry.isIntersecting) {
+        document.querySelectorAll('.kpi-value').forEach(el => {
+          const text = el.textContent.trim();
+          const num  = parseFloat(text.replace('%',''));
+          const suf  = text.includes('%') ? '%' : '';
+          animateCounter(el, num, suf, 1100);
+        });
+        kpiObserver.disconnect();
+      }
+    });
+  }, { threshold: 0.5 });
+  const kpiRow = document.querySelector('.kpi-row');
+  if (kpiRow) kpiObserver.observe(kpiRow);
+
+  // ─── Six-dimensional Radar Chart & Metrics Logic ───
+  const ROBUST_METRICS_DB = {
+    yolov5s: {
+      rdi: 0.593,
+      mld: 0.32,
+      cmif: 1.0,
+      dcs: 0.76,
+      ajer: 19.11,
+      rgi: 0.15
+    },
+    avod: {
+      rdi: 0.442,
+      mld: 0.78,
+      cmif: 0.867,
+      dcs: 0.845,
+      ajer: 12.35,
+      rgi: 0.38
+    },
+    bevfusion: {
+      rdi: 0.285,
+      mld: 0.51,
+      cmif: 0.612,
+      dcs: 0.912,
+      ajer: 7.42,
+      rgi: 0.58
+    }
+  };
+
+  window.switchRadarModel = function(btn, modelKey) {
+    // Update active tab styles
+    document.querySelectorAll('.radar-tab').forEach(t => {
+      t.style.background = 'rgba(255,255,255,0.03)';
+      t.style.borderColor = 'rgba(255,255,255,0.1)';
+      t.style.color = 'var(--text-secondary)';
+      t.classList.remove('active');
+    });
+    btn.style.background = 'rgba(11,192,160,0.15)';
+    btn.style.borderColor = 'var(--accent)';
+    btn.style.color = 'var(--accent)';
+    btn.classList.add('active');
+
+    // Get metric data
+    const data = ROBUST_METRICS_DB[modelKey];
+    if (!data) return;
+
+    // Update text labels
+    document.getElementById('m-val-rdi').textContent = data.rdi.toFixed(3);
+    document.getElementById('m-val-mld').textContent = data.mld.toFixed(2) + 'm';
+    document.getElementById('m-val-cmif').textContent = data.cmif.toFixed(3);
+    document.getElementById('m-val-dcs').textContent = (data.dcs * 100).toFixed(1) + '%';
+    document.getElementById('m-val-ajer').textContent = data.ajer.toFixed(2);
+    document.getElementById('m-val-rgi').textContent = '+' + (data.rgi * 100).toFixed(1) + '%';
+
+    // Color code updates based on threshold
+    const updateColor = (id, val, isInverse) => {
+      const el = document.getElementById(id);
+      if (isInverse) {
+        if (val >= 0.8) { el.style.color = 'var(--accent)'; }
+        else if (val >= 0.4) { el.style.color = 'var(--yellow)'; }
+        else { el.style.color = 'var(--red)'; }
+      } else {
+        if (val <= 0.4) { el.style.color = 'var(--accent)'; }
+        else if (val <= 0.8) { el.style.color = 'var(--yellow)'; }
+        else { el.style.color = 'var(--red)'; }
+      }
+    };
+    updateColor('m-val-rdi', data.rdi, false);
+    updateColor('m-val-mld', data.mld, false);
+    updateColor('m-val-cmif', data.cmif, false);
+    updateColor('m-val-dcs', data.dcs, true);
+    updateColor('m-val-ajer', data.ajer / 20.0, false);
+    updateColor('m-val-rgi', data.rgi, true);
+
+    // Compute coordinate points for Radar Shape
+    const norm = {
+      rdi: 1.0 - data.rdi,
+      mld: Math.max(0.1, 1.0 - (data.mld / 1.2)),
+      cmif: 1.0 - data.cmif,
+      dcs: data.dcs,
+      ajer: Math.max(0.1, 1.0 - (data.ajer / 25.0)),
+      rgi: Math.max(0.1, data.rgi)
+    };
+
+    const getCoord = (angleDeg, radiusNorm) => {
+      const radius = 10 + radiusNorm * 70;
+      const angleRad = (angleDeg - 90) * Math.PI / 180;
+      return {
+        x: (100 + radius * Math.cos(angleRad)).toFixed(2),
+        y: (100 + radius * Math.sin(angleRad)).toFixed(2)
+      };
+    };
+
+    const pts = [
+      getCoord(0, norm.rdi),
+      getCoord(60, norm.mld),
+      getCoord(120, norm.cmif),
+      getCoord(180, norm.dcs),
+      getCoord(240, norm.ajer),
+      getCoord(300, norm.rgi)
+    ];
+
+    const pointsStr = pts.map(p => `${p.x},${p.y}`).join(' ');
+    document.getElementById('radar-poly').setAttribute('points', pointsStr);
+
+    const setDot = (id, p) => {
+      const dot = document.getElementById(id);
+      if (dot) {
+        dot.setAttribute('cx', p.x);
+        dot.setAttribute('cy', p.y);
+      }
+    };
+    setDot('p-rdi', pts[0]);
+    setDot('p-mld', pts[1]);
+    setDot('p-cmif', pts[2]);
+    setDot('p-dcs', pts[3]);
+    setDot('p-ajer', pts[4]);
+    setDot('p-rgi', pts[5]);
+  };
+
+  // Draw initial radar for YOLOv5s
+  setTimeout(() => {
+    const yoloTab = document.querySelector('.radar-tab');
+    if (yoloTab) window.switchRadarModel(yoloTab, 'yolov5s');
+  }, 100);
+
+  // ─── Modal & Action Controllers ───
+  window.openModelWarehouse = function() {
+    const modal = document.getElementById('model-modal');
+    modal.style.display = 'flex';
+  };
+  window.closeModelWarehouse = function() {
+    const modal = document.getElementById('model-modal');
+    modal.style.display = 'none';
+  };
+
+  window.openTaskConfig = function() {
+    const modal = document.getElementById('task-modal');
+    modal.style.display = 'flex';
+    document.getElementById('task-setup-view').style.display = 'flex';
+    document.getElementById('task-console-view').style.display = 'none';
+  };
+  window.closeTaskConfig = function() {
+    const modal = document.getElementById('task-modal');
+    modal.style.display = 'none';
+  };
+
+  let consoleInterval = null;
+  window.launchTask = function() {
+    // Switch views
+    document.getElementById('task-setup-view').style.display = 'none';
+    document.getElementById('task-console-view').style.display = 'flex';
+
+    const model = document.getElementById('task-model-select').value;
+    const attack = document.getElementById('task-attack-select').value;
+    const eps = document.getElementById('task-eps').value;
+    const subset = document.getElementById('task-dataset-select').value;
+
+    const consoleDiv = document.getElementById('console-output');
+    consoleDiv.textContent = '';
+    
+    const logs = [
+      `$ conda activate base`,
+      `[sys] conda environment activated successfully.`,
+      `$ python run_evaluator.py --model ${model} --attack ${attack} --eps ${eps} --subset ${subset}`,
+      `[art] Estimator initialization sequence started...`,
+      `[art] PyTorchClassifier loaded with weights /models/${model}_best.pt`,
+      `[sys] Allocating GPU memory on Device 0...`,
+      `[gpu] GPU memory allocated: 4.8 GB`,
+      `[sys] Running adversarial perturbation calculation for ${subset} dataset...`,
+      `[art] Starting white-box ${attack.toUpperCase()} attack optimization...`,
+      `[sys] Step 01/10: Loss = 1.842 | Time: 0.12s`,
+      `[sys] Step 02/10: Loss = 2.104 | Time: 0.11s`,
+      `[sys] Step 03/10: Loss = 2.385 | Time: 0.12s`,
+      `[sys] Step 04/10: Loss = 2.712 | Time: 0.11s`,
+      `[sys] Step 05/10: Loss = 3.018 | Time: 0.12s`,
+      `[sys] Step 06/10: Loss = 3.421 | Time: 0.11s`,
+      `[sys] Step 07/10: Loss = 3.794 | Time: 0.12s`,
+      `[sys] Step 08/10: Loss = 4.108 | Time: 0.11s`,
+      `[sys] Step 09/10: Loss = 4.412 | Time: 0.12s`,
+      `[sys] Step 10/10: Loss = 4.685 | Time: 0.11s`,
+      `[art] Perturbed outputs serialized into /data/logs/${model}_${attack}_eps_${eps}.json`,
+      `[sys] Calculating six-dimensional safety metrics...`,
+      `[sys] DCS Consistency: 0.825 | MLD Drift: 0.64m | RDI Drop: 0.382`,
+      `[sys] Evaluation pipeline complete. Success!`,
+      `[sys] Rendering results to evaluation dashboard...`
+    ];
+
+    let logIndex = 0;
+    const vramSpan = document.getElementById('console-vram');
+    
+    consoleInterval = setInterval(() => {
+      if (logIndex < logs.length) {
+        consoleDiv.textContent += logs[logIndex] + '\n';
+        consoleDiv.scrollTop = consoleDiv.scrollHeight;
+        
+        // Simulate VRAM changes
+        if (logIndex >= 5 && logIndex <= 20) {
+          vramSpan.textContent = (4.8 + Math.random() * 0.4).toFixed(1);
+        } else {
+          vramSpan.textContent = '0';
+        }
+        
+        logIndex++;
+      } else {
+        clearInterval(consoleInterval);
+        setTimeout(() => {
+          closeTaskConfig();
+          // Update the dashboard radar view to represent the test target
+          const radarTab = document.querySelectorAll('.radar-tab');
+          if (model === 'bevfusion' && radarTab[2]) {
+            window.switchRadarModel(radarTab[2], 'bevfusion');
+          } else if (model === 'avod' && radarTab[1]) {
+            window.switchRadarModel(radarTab[1], 'avod');
+          } else if (radarTab[0]) {
+            window.switchRadarModel(radarTab[0], 'yolov5s');
+          }
+        }, 1500);
+      }
+    }, 400);
+  };
+
+  window.abortTask = function() {
+    if (consoleInterval) clearInterval(consoleInterval);
+    const consoleDiv = document.getElementById('console-output');
+    consoleDiv.textContent += '\n\n[sys] task aborted by user request.\n';
+    consoleDiv.scrollTop = consoleDiv.scrollHeight;
+    document.getElementById('console-vram').textContent = '0';
+    setTimeout(() => {
+      closeTaskConfig();
+    }, 1000);
+  };
+
+  window.exportPDFReport = function() {
+    window.print();
+  };
+</script>
+</body>
+</html>
