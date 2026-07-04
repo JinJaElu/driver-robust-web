@@ -1682,7 +1682,7 @@
 <div id="task-modal" class="modal-overlay" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.85); z-index:9999; align-items:center; justify-content:center;">
   <div class="glass-card" style="width:980px; max-width:94%; max-height:92vh; overflow-y:auto; padding:30px; border:1px solid rgba(255,255,255,0.1); display:flex; flex-direction:column; gap:20px; box-shadow:0 20px 50px rgba(0,0,0,0.5);">
     <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid rgba(255,255,255,0.1); padding-bottom:12px;">
-      <h3 style="margin:0; font-size:18px; color:var(--accent); font-family:'Space Mono', monospace;">// 对抗测试任务 / 本机上传评估 (Unified Pressure Test)</h3>
+      <h3 style="margin:0; font-size:18px; color:var(--accent); font-family:'Space Mono', monospace;">// 对抗测试任务 / 评估主机上传评估 (Unified Pressure Test)</h3>
       <button onclick="closeTaskConfig()" style="background:none; border:none; color:var(--text-muted); font-size:20px; cursor:pointer;">&times;</button>
     </div>
     
@@ -1724,17 +1724,17 @@
       <div style="border:1px solid rgba(124,255,186,0.18); background:rgba(11,192,160,0.04); padding:14px; display:flex; flex-direction:column; gap:12px;">
         <div style="display:flex; justify-content:space-between; gap:12px; align-items:flex-start; flex-wrap:wrap;">
           <div>
-            <div style="font-family:'Space Mono', monospace; font-size:14px; color:var(--accent); font-weight:800;">远端数据上传 / 本机队列桥梁</div>
-            <div style="font-size:12px; color:var(--text-muted); margin-top:4px; line-height:1.6;">上传包由本机网关接收，固定写入 <code>/dev/shm/driverobust_bridge</code>（可在启动服务时由本机操作者固定修改），单包与总桥接区默认均不超过 <code>500MB</code>。仿真未就绪时返回 <code>queued</code>，就绪后自动调用评估钩子并回传结果。</div>
+            <div style="font-family:'Space Mono', monospace; font-size:14px; color:var(--accent); font-weight:800;">远端数据上传 / 评估主机队列桥梁</div>
+            <div style="font-size:12px; color:var(--text-muted); margin-top:4px; line-height:1.6;">这里的“本机”指<strong style="color:var(--accent)">评估主机/你的主机</strong>，不是打开网页用户自己的电脑。上传包由评估主机网关接收，固定写入 <code>/dev/shm/driverobust_bridge</code>，单包与总桥接区默认均不超过 <code>500MB</code>。GitHub Pages 访问时请填写评估主机可访问的 HTTPS 地址；若只有 HTTP/LAN 地址，建议直接打开评估主机网关提供的 <code>http://评估主机IP:8765/dashboard.html</code>，这样页面会自动使用当前评估主机地址并避免 HTTPS 混合内容拦截。</div>
           </div>
           <span id="gateway-status-pill" style="font-size:11px; border:1px solid rgba(247,179,71,0.45); color:var(--yellow); padding:4px 8px; font-family:'Space Mono', monospace;">QUEUE UNKNOWN</span>
         </div>
         <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
-          <label style="display:flex; flex-direction:column; gap:6px; font-size:12px; color:var(--text-muted);">本机网关上传接口
-            <input id="gateway-endpoint" value="http://127.0.0.1:8765/api/evaluate/upload" style="background:#18202b; border:1px solid rgba(255,255,255,0.1); color:var(--text-primary); padding:8px; font-family:inherit;">
+          <label style="display:flex; flex-direction:column; gap:6px; font-size:12px; color:var(--text-muted);">评估主机网关上传接口
+            <input id="gateway-endpoint" data-default-path="/api/evaluate/upload" placeholder="https://你的评估主机域名/api/evaluate/upload 或 http://评估主机IP:8765/api/evaluate/upload" style="background:#18202b; border:1px solid rgba(255,255,255,0.1); color:var(--text-primary); padding:8px; font-family:inherit;">
           </label>
           <label style="display:flex; flex-direction:column; gap:6px; font-size:12px; color:var(--text-muted);">状态接口
-            <input id="gateway-health" value="http://127.0.0.1:8765/api/health" style="background:#18202b; border:1px solid rgba(255,255,255,0.1); color:var(--text-primary); padding:8px; font-family:inherit;">
+            <input id="gateway-health" data-default-path="/api/health" placeholder="https://你的评估主机域名/api/health 或 http://评估主机IP:8765/api/health" style="background:#18202b; border:1px solid rgba(255,255,255,0.1); color:var(--text-primary); padding:8px; font-family:inherit;">
           </label>
           <label style="display:flex; flex-direction:column; gap:6px; font-size:12px; color:var(--text-muted);">Job ID（可空）
             <input id="gateway-job-id" placeholder="remote-task-0001" style="background:#18202b; border:1px solid rgba(255,255,255,0.1); color:var(--text-primary); padding:8px; font-family:inherit;">
@@ -1770,15 +1770,15 @@
 }</pre>
         </details>
         <div style="display:flex; gap:10px; justify-content:flex-end; flex-wrap:wrap;">
-          <button onclick="checkGatewayHealth()" style="background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.1); color:var(--text-primary); padding:8px 14px; font-size:12px; font-weight:700; cursor:pointer; font-family:'Space Mono', monospace;">检测本机桥梁</button>
+          <button onclick="checkGatewayHealth()" style="background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.1); color:var(--text-primary); padding:8px 14px; font-size:12px; font-weight:700; cursor:pointer; font-family:'Space Mono', monospace;">检测评估主机桥梁</button>
           <button onclick="uploadGatewayPackage()" style="background:var(--yellow); border:none; color:#121820; padding:8px 14px; font-size:12px; font-weight:800; cursor:pointer; font-family:'Space Mono', monospace;">上传包并加入评估队列</button>
         </div>
-        <div id="gateway-log" style="background:#0a0f18; border:1px solid rgba(255,255,255,0.08); color:#d7ffe9; font-family:'Space Mono', monospace; font-size:11px; padding:10px; min-height:48px; max-height:120px; overflow:auto; white-space:pre-wrap;">本机桥梁未检测。</div>
+        <div id="gateway-log" style="background:#0a0f18; border:1px solid rgba(255,255,255,0.08); color:#d7ffe9; font-family:'Space Mono', monospace; font-size:11px; padding:10px; min-height:48px; max-height:120px; overflow:auto; white-space:pre-wrap;">评估主机桥梁未检测。</div>
       </div>
 
       <div style="display:flex; justify-content:flex-end; gap:12px; border-top:1px solid rgba(255,255,255,0.1); padding-top:16px; margin-top:8px;">
         <button onclick="closeTaskConfig()" style="background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.1); color:var(--text-primary); padding:8px 16px; font-size:12px; font-weight:700; cursor:pointer; font-family:'Space Mono', monospace;">取消</button>
-        <button onclick="launchTask()" style="background:var(--accent); border:none; color:#121820; padding:8px 16px; font-size:12px; font-weight:700; cursor:pointer; font-family:'Space Mono', monospace;">启动本机内置评测任务</button>
+        <button onclick="launchTask()" style="background:var(--accent); border:none; color:#121820; padding:8px 16px; font-size:12px; font-weight:700; cursor:pointer; font-family:'Space Mono', monospace;">启动评估主机内置任务</button>
       </div>
     </div>
     
@@ -2159,6 +2159,7 @@
     modal.style.display = 'flex';
     document.getElementById('task-setup-view').style.display = 'flex';
     document.getElementById('task-console-view').style.display = 'none';
+    configureGatewayDefaults();
     setTimeout(() => window.checkGatewayHealth && window.checkGatewayHealth(), 50);
   };
   window.closeTaskConfig = function() {
@@ -2174,7 +2175,7 @@
   }
 
   function gatewayHealthUrl() {
-    return (document.getElementById('gateway-health')?.value || 'http://127.0.0.1:8765/api/health').trim();
+    return (document.getElementById('gateway-health')?.value || '').trim();
   }
 
   function setGatewayPill(text, mode) {
@@ -2196,9 +2197,37 @@
     }
   }
 
+  function isHostedOnGithubPages() {
+    return location.hostname.endsWith('github.io');
+  }
+
+  function configureGatewayDefaults() {
+    const endpoint = document.getElementById('gateway-endpoint');
+    const health = document.getElementById('gateway-health');
+    if (!endpoint || !health) return;
+    const savedEndpoint = localStorage.getItem('driverobust_gateway_endpoint') || '';
+    const savedHealth = localStorage.getItem('driverobust_gateway_health') || '';
+    if (savedEndpoint) endpoint.value = savedEndpoint;
+    if (savedHealth) health.value = savedHealth;
+    if (!endpoint.value && !health.value && !isHostedOnGithubPages()) {
+      endpoint.value = `${location.origin}/api/evaluate/upload`;
+      health.value = `${location.origin}/api/health`;
+    }
+    if (!endpoint.value && !health.value && isHostedOnGithubPages()) {
+      gatewayLog('当前页面来自 GitHub Pages。请把网关地址填写为“评估主机/你的主机”的可访问 HTTPS 地址；不要使用 127.0.0.1，因为那会指向浏览器用户自己的电脑。若只有 HTTP/LAN 地址，请打开 http://评估主机IP:8765/dashboard.html。');
+    }
+  }
+
   window.checkGatewayHealth = async function() {
+    const url = gatewayHealthUrl();
+    if (!url) {
+      setGatewayPill('HOST URL REQUIRED', 'queue');
+      gatewayLog('请先填写评估主机的状态接口地址。GitHub Pages 下建议使用 HTTPS 反代地址；HTTP/LAN 地址请直接打开 http://评估主机IP:8765/dashboard.html。');
+      return null;
+    }
     try {
-      const res = await fetch(gatewayHealthUrl(), {cache: 'no-store'});
+      localStorage.setItem('driverobust_gateway_health', url);
+      const res = await fetch(url, {cache: 'no-store'});
       const data = await res.json();
       const storage = data.storage_root ? ` | storage=${data.storage_root} | free=${data.storage_free_human}` : '';
       if (data.simulation_ready) {
@@ -2206,11 +2235,11 @@
       } else {
         setGatewayPill('QUEUEING / 排队', 'queue');
       }
-      gatewayLog(`本机桥梁在线：${data.status}${storage}`, data);
+      gatewayLog(`评估主机桥梁在线：${data.status}${storage}`, data);
       return data;
     } catch (err) {
       setGatewayPill('OFFLINE / 未启动', 'offline');
-      gatewayLog('无法连接本机桥梁：请在本机 pages 目录启动 local_eval_server.py', {error: String(err)});
+      gatewayLog('无法连接评估主机桥梁：请在评估主机 pages 目录启动 local_eval_server.py', {error: String(err)});
       return null;
     }
   };
@@ -2224,9 +2253,10 @@
     }
     const endpoint = (document.getElementById('gateway-endpoint')?.value || '').trim();
     if (!endpoint) {
-      gatewayLog('请填写本机网关上传接口。');
+      gatewayLog('请填写评估主机网关上传接口。注意：GitHub 页面中的 127.0.0.1 指向浏览器用户电脑，不是你的评估主机。');
       return;
     }
+    localStorage.setItem('driverobust_gateway_endpoint', endpoint);
     const jobId = (document.getElementById('gateway-job-id')?.value || '').trim();
     const url = new URL(endpoint);
     if (jobId) url.searchParams.set('job_id', jobId);
@@ -2239,7 +2269,7 @@
     if (submitter) headers['X-Submitter'] = submitter;
     if (token) headers['X-Upload-Token'] = token;
 
-    gatewayLog(`开始上传 ${file.name} (${file.size} bytes)，超过 500MB 会被本机桥梁拒绝。`);
+    gatewayLog(`开始上传 ${file.name} (${file.size} bytes)，超过 500MB 会被评估主机桥梁拒绝。`);
     try {
       const res = await fetch(url.toString(), {method: 'POST', headers, body: file});
       const text = await res.text();
@@ -2250,7 +2280,7 @@
         gatewayLog('上传已接收；若仿真未就绪则已进入队列。', data);
       } else {
         setGatewayPill('REJECTED / 被拒绝', 'error');
-        gatewayLog('上传被本机桥梁拒绝。', data);
+        gatewayLog('上传被评估主机桥梁拒绝。', data);
       }
       await checkGatewayHealth();
     } catch (err) {

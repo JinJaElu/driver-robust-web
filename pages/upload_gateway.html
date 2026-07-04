@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>本机上传评估网关 · DriveRobust</title>
-<meta name="description" content="DriveRobust 本机评估上传规范、任务排队与结果回传接口">
+<title>评估主机上传评估网关 · DriveRobust</title>
+<meta name="description" content="DriveRobust 评估主机评估上传规范、任务排队与结果回传接口">
 <style>
   :root{
     --bg:#070a0f; --panel:#101720; --panel2:#151e29; --line:rgba(124,255,186,.18);
@@ -28,8 +28,8 @@
       <div class="logo">DR</div>
       <div>
         <div class="eyebrow">DriveRobust Local Evaluation Gateway</div>
-        <div class="title">本机上传评估网关</div>
-        <div class="subtitle">允许远端服务器/协作者将评估包上传到本机；仿真环境就绪则执行评估并回传结果，否则任务进入排队状态。</div>
+        <div class="title">评估主机上传评估网关</div>
+        <div class="subtitle">允许远端服务器/协作者将评估包上传到评估主机（你的主机）；仿真环境就绪则执行评估并回传结果，否则任务进入排队状态。这里的“本机”不是打开网页用户自己的电脑。</div>
       </div>
     </div>
     <nav class="nav">
@@ -49,14 +49,14 @@
 
   <div class="grid">
     <section class="card">
-      <h2>// 1. 本机接入地址与上传表单</h2>
-      <p class="hint">页面可以在本机直接访问；如果远端服务器要上传到本机，请将本机 <code>8765</code> 端口通过局域网、VPN、反向代理或安全隧道暴露给对方。GitHub Pages 静态页面本身不能保存上传文件，必须启动本文件夹内的本机网关服务。</p>
+      <h2>// 1. 评估主机接入地址与上传表单</h2>
+      <p class="hint">页面可以直接由评估主机网关提供：<code>http://评估主机IP:8765/upload_gateway.html</code>。如果从 GitHub Pages 打开，上传接口应使用评估主机的 HTTPS 反代地址；浏览器通常会拦截 HTTPS 页面向普通 HTTP/LAN 地址上传。GitHub Pages 静态页面本身不能保存上传文件，必须启动本文件夹内的评估主机网关服务。</p>
       <div class="form-grid">
-        <label>本机网关地址
-          <input id="endpoint" value="http://127.0.0.1:8765/api/evaluate/upload">
+        <label>评估主机网关地址
+          <input id="endpoint" placeholder="https://你的评估主机域名/api/evaluate/upload 或 http://评估主机IP:8765/api/evaluate/upload">
         </label>
         <label>状态接口
-          <input id="health-endpoint" value="http://127.0.0.1:8765/api/health">
+          <input id="health-endpoint" placeholder="https://你的评估主机域名/api/health 或 http://评估主机IP:8765/api/health">
         </label>
         <label>任务 ID（可空；空则自动生成）
           <input id="job-id" placeholder="job-20260704-demo">
@@ -67,7 +67,7 @@
         <label>结果回传 Callback URL（可空）
           <input id="callback-url" placeholder="https://server.example.com/api/driverobust/results">
         </label>
-        <label>上传令牌（如本机设置 DRIVEROBUST_UPLOAD_TOKEN）
+        <label>上传令牌（如评估主机设置 DRIVEROBUST_UPLOAD_TOKEN）
           <input id="upload-token" type="password" placeholder="optional">
         </label>
         <label style="grid-column:1/-1">评估包文件（.zip / .tar.gz / .tgz / .tar）
@@ -75,7 +75,7 @@
         </label>
       </div>
       <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:14px">
-        <button class="btn" onclick="checkHealth()">检测本机状态</button>
+        <button class="btn" onclick="checkHealth()">检测评估主机状态</button>
         <button class="btn primary" onclick="uploadPackage()">上传并提交评估</button>
         <button class="btn warn" onclick="loadTasks()">刷新任务列表</button>
       </div>
@@ -84,12 +84,12 @@
     </section>
 
     <section class="card">
-      <h2>// 2. 本机启动与队列规则</h2>
-      <p class="hint">上传数据不会写入 GitHub Pages 页面目录；网关默认固定使用 <code>/dev/shm/driverobust_bridge</code> 作为独立桥接存储区，单文件与总容量均限制为 <code>500MB</code>。如需更换位置，只在本机启动服务时用 <code>--fixed-storage-root</code> 固定指定。</p>
+      <h2>// 2. 评估主机启动与队列规则</h2>
+      <p class="hint">上传数据不会写入 GitHub Pages 页面目录；网关默认固定使用评估主机上的 <code>/dev/shm/driverobust_bridge</code> 作为独立桥接存储区，单文件与总容量均限制为 <code>500MB</code>。如需更换位置，只在评估主机启动服务时用 <code>--fixed-storage-root</code> 固定指定。</p>
       <pre>cd /home/matrix/seoul_robotics_style/evaluation_v2/pages
 python3 local_eval_server.py --host 0.0.0.0 --port 8765
 
-# 如需本机管理员固定改到另一个安全位置：
+# 如需评估主机管理员固定改到另一个安全位置：
 python3 local_eval_server.py --host 0.0.0.0 --port 8765 \
   --fixed-storage-root /固定安全位置/driverobust_bridge \
   --max-upload-mb 500 --storage-limit-mb 500</pre>
@@ -97,7 +97,7 @@ python3 local_eval_server.py --host 0.0.0.0 --port 8765 \
         <tr><th>状态</th><th>判定方式</th><th>行为</th></tr>
         <tr><td><span class="pill queue">QUEUEING</span></td><td>不存在 <code>&lt;fixed-storage-root&gt;/runtime/SIM_READY</code> 且未设置 <code>DRIVEROBUST_SIM_READY=1</code></td><td>合法上传包被保存到 <code>&lt;fixed-storage-root&gt;/eval_queue/</code>，接口返回 <code>202 queued</code> 与排队说明。</td></tr>
         <tr><td><span class="pill">READY</span></td><td>创建 <code>&lt;fixed-storage-root&gt;/runtime/SIM_READY</code> 或设置环境变量</td><td>后台 worker 取队列任务，调用 <code>&lt;fixed-storage-root&gt;/runtime/evaluate_job.py</code> 或 <code>.sh</code>。</td></tr>
-        <tr><td><span class="pill">RETURN</span></td><td>任务完成且 manifest 或请求头提供 callback</td><td>本机会将结果 JSON <code>POST</code> 到远端 <code>callback_url</code>，同时保存在 <code>eval_results/</code>。</td></tr>
+        <tr><td><span class="pill">RETURN</span></td><td>任务完成且 manifest 或请求头提供 callback</td><td>评估主机会将结果 JSON <code>POST</code> 到远端 <code>callback_url</code>，同时保存在 <code>eval_results/</code>。</td></tr>
       </table>
       <h3>标记仿真环境就绪 / 暂停接单</h3>
       <pre># 就绪：开始消费队列
@@ -114,7 +114,7 @@ rm -f /dev/shm/driverobust_bridge/runtime/SIM_READY</pre>
     <div class="grid">
       <div>
         <ul class="spec-list">
-          <li><strong>压缩格式：</strong><code>.zip</code>、<code>.tar.gz</code>、<code>.tgz</code> 或 <code>.tar</code>；建议单包不超过本机配置上限（默认 500MB）。</li>
+          <li><strong>压缩格式：</strong><code>.zip</code>、<code>.tar.gz</code>、<code>.tgz</code> 或 <code>.tar</code>；建议单包不超过评估主机配置上限（默认 500MB）。</li>
           <li><strong>根目录必须包含：</strong><code>manifest.json</code>，其 <code>spec_version</code> 必须为 <code>driverobust-eval-upload-v1</code>。</li>
           <li><strong>路径安全：</strong>压缩包内不得包含绝对路径、<code>..</code> 回退路径或可执行自启动脚本。</li>
           <li><strong>传感器数据：</strong>相机图片建议放在 <code>inputs/images/</code> 或 <code>samples/CAM_*/</code>；点云放在 <code>inputs/lidar/</code> 或 <code>velodyne/</code>；标定放在 <code>calib/</code>。</li>
@@ -178,14 +178,35 @@ python3 runtime/evaluate_job.py \
 
 <script>
 const $ = id => document.getElementById(id);
+function isHostedOnGithubPages() { return location.hostname.endsWith('github.io'); }
+function configureGatewayDefaults() {
+  const endpoint = $('endpoint');
+  const health = $('health-endpoint');
+  const savedEndpoint = localStorage.getItem('driverobust_gateway_endpoint') || '';
+  const savedHealth = localStorage.getItem('driverobust_gateway_health') || '';
+  if (savedEndpoint) endpoint.value = savedEndpoint;
+  if (savedHealth) health.value = savedHealth;
+  if (!endpoint.value && !health.value && !isHostedOnGithubPages()) {
+    endpoint.value = `${location.origin}/api/evaluate/upload`;
+    health.value = `${location.origin}/api/health`;
+  }
+}
 function log(message, obj) {
   const line = `[${new Date().toLocaleTimeString()}] ${message}` + (obj ? `\n${JSON.stringify(obj, null, 2)}` : '');
   $('log').textContent = line + '\n\n' + $('log').textContent;
 }
-function healthUrl() { return $('health-endpoint').value.trim() || 'http://127.0.0.1:8765/api/health'; }
+function healthUrl() { return $('health-endpoint').value.trim(); }
 async function checkHealth() {
+  const url = healthUrl();
+  if (!url) {
+    $('stat-service').textContent = 'HOST?';
+    $('stat-service').className = 'queue';
+    log('请先填写评估主机状态接口。GitHub 页面里的 127.0.0.1 指向浏览器用户自己的电脑，不是你的评估主机；若只有 HTTP/LAN 地址，请打开 http://评估主机IP:8765/upload_gateway.html。');
+    return;
+  }
   try {
-    const res = await fetch(healthUrl(), {cache:'no-store'});
+    localStorage.setItem('driverobust_gateway_health', url);
+    const res = await fetch(url, {cache:'no-store'});
     const data = await res.json();
     $('stat-service').textContent = res.ok ? 'ONLINE' : 'ERROR';
     $('stat-service').className = res.ok ? 'ok' : 'bad';
@@ -194,7 +215,7 @@ async function checkHealth() {
     $('stat-queue').textContent = data.queue_depth ?? '--';
     $('stat-runner').textContent = data.runner ? 'HOOK' : 'VALID';
     $('stat-storage').textContent = data.storage_free_human || data.max_upload_human || '--';
-    log('本机状态检测完成', data);
+    log('评估主机状态检测完成', data);
   } catch (err) {
     $('stat-service').textContent = 'OFFLINE';
     $('stat-service').className = 'bad';
@@ -202,13 +223,15 @@ async function checkHealth() {
     $('stat-queue').textContent = '--';
     $('stat-runner').textContent = '--';
     $('stat-storage').textContent = '--';
-    log('无法连接本机网关：请先启动 local_eval_server.py', {error: String(err)});
+    log('无法连接评估主机网关：请先启动 local_eval_server.py', {error: String(err)});
   }
 }
 async function uploadPackage() {
   const file = $('upload-file').files[0];
   if (!file) { log('请选择评估包文件'); return; }
   const endpoint = $('endpoint').value.trim();
+  if (!endpoint) { log('请填写评估主机上传接口。'); return; }
+  localStorage.setItem('driverobust_gateway_endpoint', endpoint);
   const jobId = $('job-id').value.trim();
   const url = new URL(endpoint);
   if (jobId) url.searchParams.set('job_id', jobId);
@@ -223,6 +246,7 @@ async function uploadPackage() {
     let data;
     try { data = JSON.parse(text); } catch { data = {raw:text}; }
     log(res.ok ? '上传已接收' : '上传被拒绝', data);
+    configureGatewayDefaults();
     await checkHealth();
     await loadTasks();
   } catch (err) {
@@ -245,6 +269,7 @@ async function loadTasks() {
     log('任务列表读取失败', {error:String(err)});
   }
 }
+configureGatewayDefaults();
 checkHealth();
 </script>
 </body>
