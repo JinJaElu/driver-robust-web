@@ -27,9 +27,9 @@
     <div class="brand">
       <div class="logo">DR</div>
       <div>
-        <div class="eyebrow">DriveRobust Local Evaluation Gateway</div>
+        <div class="eyebrow">DriveRobust Evaluation Host Gateway</div>
         <div class="title">评估主机上传评估网关</div>
-        <div class="subtitle">允许远端服务器/协作者将评估包上传到评估主机（你的主机）；仿真环境就绪则执行评估并回传结果，否则任务进入排队状态。这里的“本机”不是打开网页用户自己的电脑。</div>
+        <div class="subtitle">允许远端服务器/协作者将图片或图片压缩包上传到评估主机（你的主机）；服务端执行扰动/推理后返回 JSON 评估结果，否则任务进入排队状态。这里的接收端是评估主机，不是打开网页用户自己的电脑。</div>
       </div>
     </div>
     <nav class="nav">
@@ -59,7 +59,7 @@
           <input id="health-endpoint" placeholder="http://10.203.170.203:8765/api/health">
         </label>
         <label>任务 ID（可空；空则自动生成）
-          <input id="job-id" placeholder="job-20260704-demo">
+          <input id="job-id" placeholder="job-demo-001">
         </label>
         <label>提交方 / 服务器标识
           <input id="submitter" placeholder="remote-server-a">
@@ -70,8 +70,8 @@
         <label>上传令牌（如评估主机设置 DRIVEROBUST_UPLOAD_TOKEN）
           <input id="upload-token" type="password" placeholder="optional">
         </label>
-        <label style="grid-column:1/-1">评估包文件（.zip / .tar.gz / .tgz / .tar）
-          <input id="upload-file" type="file" accept=".zip,.tar,.gz,.tgz,.json,application/zip,application/gzip,application/json">
+        <label style="grid-column:1/-1">图片文件或图片包（.jpg/.png/.webp 或 .zip/.tar.gz/.tgz/.tar）
+          <input id="upload-file" type="file" accept="image/*,.jpg,.jpeg,.png,.webp,.bmp,.tif,.tiff,.zip,.tar,.gz,.tgz,application/zip,application/gzip">
         </label>
       </div>
       <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:14px">
@@ -95,9 +95,9 @@ python3 local_eval_server.py --host 0.0.0.0 --port 8765 \
   --max-upload-mb 500 --storage-limit-mb 500</pre>
       <table>
         <tr><th>状态</th><th>判定方式</th><th>行为</th></tr>
-        <tr><td><span class="pill queue">QUEUEING</span></td><td>不存在 <code>&lt;fixed-storage-root&gt;/runtime/SIM_READY</code> 且未设置 <code>DRIVEROBUST_SIM_READY=1</code></td><td>合法上传包被保存到 <code>&lt;fixed-storage-root&gt;/eval_queue/</code>，接口返回 <code>202 queued</code> 与排队说明。</td></tr>
+        <tr><td><span class="pill queue">QUEUEING</span></td><td>不存在 <code>&lt;fixed-storage-root&gt;/runtime/SIM_READY</code> 且未设置 <code>DRIVEROBUST_SIM_READY=1</code></td><td>合法图片数据被保存到 <code>&lt;fixed-storage-root&gt;/eval_queue/</code>，接口返回 <code>202 queued</code> 与排队说明。</td></tr>
         <tr><td><span class="pill">READY</span></td><td>创建 <code>&lt;fixed-storage-root&gt;/runtime/SIM_READY</code> 或设置环境变量</td><td>后台 worker 取队列任务，调用 <code>&lt;fixed-storage-root&gt;/runtime/evaluate_job.py</code> 或 <code>.sh</code>。</td></tr>
-        <tr><td><span class="pill">RETURN</span></td><td>任务完成且 manifest 或请求头提供 callback</td><td>评估主机会将结果 JSON <code>POST</code> 到远端 <code>callback_url</code>，同时保存在 <code>eval_results/</code>。</td></tr>
+        <tr><td><span class="pill">RETURN</span></td><td>任务完成且请求头提供 Callback URL</td><td>评估主机会将结果 JSON <code>POST</code> 到远端 <code>callback_url</code>，同时保存在 <code>eval_results/</code>；JSON 为返回结果格式，上传输入为图片数据。</td></tr>
       </table>
       <h3>标记仿真环境就绪 / 暂停接单</h3>
       <pre># 就绪：开始消费队列
@@ -110,51 +110,46 @@ rm -f /dev/shm/driverobust_bridge/runtime/SIM_READY</pre>
   </div>
 
   <section class="card" style="margin-top:16px">
-    <h2>// 3. 上传数据包规范（必须满足）</h2>
+    <h2>// 3. 上传图片数据规范（必须满足）</h2>
     <div class="grid">
       <div>
         <ul class="spec-list">
-          <li><strong>压缩格式：</strong><code>.zip</code>、<code>.tar.gz</code>、<code>.tgz</code> 或 <code>.tar</code>；建议单包不超过评估主机配置上限（默认 500MB）。</li>
-          <li><strong>根目录必须包含：</strong><code>manifest.json</code>，其 <code>spec_version</code> 必须为 <code>driverobust-eval-upload-v1</code>。</li>
+          <li><strong>上传内容：</strong>单张图片（<code>.jpg/.jpeg/.png/.webp/.bmp/.tif/.tiff</code>）或图片压缩包（<code>.zip/.tar.gz/.tgz/.tar</code>）；建议单包不超过评估主机配置上限（默认 500MB）。</li>
+          <li><strong>请求元数据：</strong>任务 ID、提交方、Callback URL 与模型/攻击配置由表单和请求头传递；压缩包主体保持为图片数据。</li>
           <li><strong>路径安全：</strong>压缩包内不得包含绝对路径、<code>..</code> 回退路径或可执行自启动脚本。</li>
-          <li><strong>传感器数据：</strong>相机图片建议放在 <code>inputs/images/</code> 或 <code>samples/CAM_*/</code>；点云放在 <code>inputs/lidar/</code> 或 <code>velodyne/</code>；标定放在 <code>calib/</code>。</li>
-          <li><strong>标签/预测：</strong>真值、预测、扰动配置可放在 <code>labels/</code>、<code>annotations/</code>、<code>predictions/</code> 或 <code>perturbations/</code>。</li>
-          <li><strong>结果回传：</strong>优先使用请求头 <code>X-Callback-Url</code>；也可在 manifest 中设置 <code>callback_url</code>。</li>
+          <li><strong>图片路径：</strong>相机图片建议放在 <code>inputs/images/</code> 或 <code>samples/CAM_*/</code>；服务端会基于图片生成扰动、推理并输出 JSON 指标。</li>
+          <li><strong>可选附属数据：</strong>如需评估精度，可附带 <code>labels/</code>、<code>annotations/</code> 或 <code>calib/</code>；预测结果由服务端评估流程生成。</li>
+          <li><strong>结果回传：</strong>优先使用请求头 <code>X-Callback-Url</code>；也可在上传表单中设置 Callback URL。</li>
         </ul>
       </div>
       <div>
-<pre>{
-  "spec_version": "driverobust-eval-upload-v1",
-  "task_id": "remote-task-0001",
-  "dataset_type": "kitti",
-  "sensor_suite": ["camera", "lidar"],
-  "frame_count": 50,
-  "files": {
-    "images": "inputs/images/",
-    "lidar": "inputs/lidar/",
-    "calib": "calib/",
-    "labels": "labels/",
-    "predictions": "predictions/"
-  },
-  "evaluation": {
-    "models": ["yolov5s", "avod", "bevfusion"],
-    "metrics": ["recall", "precision", "RDI", "MLD", "CMIF", "DCS", "AJER", "RGI"]
-  },
-  "callback_url": "https://server.example.com/api/results"
-}</pre>
+<pre>driverobust_images.zip
+  inputs/images/
+    frame_000001.jpg
+    frame_000002.jpg
+    ...
+  labels/        (optional)
+  calib/         (optional)
+
+Request metadata:
+  X-Submitter, X-Callback-Url, X-Task-Config
+
+Result:
+  GET /api/results/&lt;job_id&gt; returns JSON metrics
+  and artifact references.</pre>
       </div>
     </div>
     <h3>远端服务器上传示例</h3>
 <pre>curl -X POST 'http://LOCAL_HOST:8765/api/evaluate/upload?job_id=remote-task-0001' \
-  -H 'X-File-Name: driverobust_eval_package.zip' \
+  -H 'X-File-Name: driverobust_images.zip' \
   -H 'X-Submitter: remote-server-a' \
   -H 'X-Callback-Url: https://server.example.com/api/driverobust/results' \
-  --data-binary @driverobust_eval_package.zip</pre>
+  --data-binary @driverobust_images.zip</pre>
   </section>
 
   <section class="card" style="margin-top:16px">
     <h2>// 4. 评估执行钩子与结果格式</h2>
-    <p class="hint">网关只负责接收、校验、排队、调度与回传。真正仿真评估逻辑建议放在 <code>&lt;fixed-storage-root&gt;/runtime/evaluate_job.py</code> 或 <code>.sh</code> 中，也可放在本文件夹的 <code>runtime/</code> 中；仿真环境未准备好时不要创建 <code>SIM_READY</code>。</p>
+    <p class="hint">网关只负责接收、校验、排队、调度与回传。真正仿真评估逻辑建议放在 <code>&lt;fixed-storage-root&gt;/runtime/evaluate_job.py</code> 或 <code>.sh</code> 中，也可放在本文件夹的 <code>runtime/</code> 中；仿真环境未准备好时保持 <code>SIM_READY</code> 未启用。</p>
 <pre># runtime/evaluate_job.py 会收到：
 python3 runtime/evaluate_job.py \
   --job-dir &lt;fixed-storage-root&gt;/eval_queue/&lt;job_id&gt; \
@@ -166,7 +161,7 @@ python3 runtime/evaluate_job.py \
   "status": "completed",
   "metrics": {"recall": 0.718, "precision": 0.64, "RDI": 0.285},
   "artifacts": {"report": "eval_results/remote-task-0001_report.pdf"},
-  "completed_at": "2026-07-04T12:00:00Z"
+  "completed_at": "<ISO-8601 timestamp>"
 }</pre>
   </section>
 
@@ -238,7 +233,13 @@ async function checkHealth() {
 }
 async function uploadPackage() {
   const file = $('upload-file').files[0];
-  if (!file) { log('请选择评估包文件'); return; }
+  if (!file) { log('请选择图片文件或图片压缩包'); return; }
+  const lowerName = file.name.toLowerCase();
+  const allowedImageInput = /\.(jpe?g|png|webp|bmp|tiff?|zip|tar|tgz|tar\.gz)$/i.test(lowerName);
+  if (!allowedImageInput || /\.(json|jsonl)$/i.test(lowerName)) {
+    log('请上传图片文件或图片压缩包；JSON 为评估服务端返回结果格式，上传输入为图片数据。');
+    return;
+  }
   const endpoint = $('endpoint').value.trim();
   if (!endpoint) { log('请填写评估主机上传接口。'); return; }
   localStorage.setItem('driverobust_gateway_endpoint', endpoint);
@@ -259,13 +260,13 @@ async function uploadPackage() {
     source: 'upload-gateway-standalone',
     created_at: new Date().toISOString()
   }));
-  log(`开始上传 ${file.name} (${file.size} bytes)`);
+  log(`开始上传图片数据 ${file.name} (${file.size} bytes)`);
   try {
     const res = await fetch(url.toString(), {method:'POST', headers, body:file});
     const text = await res.text();
     let data;
     try { data = JSON.parse(text); } catch { data = {raw:text}; }
-    log(res.ok ? '上传已接收' : '上传被拒绝', data);
+    log(res.ok ? '图片已接收；评估结果将通过接口响应、结果查询接口或 Callback URL 输出。' : '上传被拒绝', data);
     configureGatewayDefaults();
     await checkHealth();
     await loadTasks();

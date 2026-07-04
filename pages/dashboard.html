@@ -30,7 +30,7 @@
     font-family: 'Inter', sans-serif;
     min-height: 100vh;
     background-color: #07080b;
-    background-image: 
+    background-image:
       linear-gradient(rgba(124, 255, 186, 0.012) 1px, transparent 1px),
       linear-gradient(90deg, rgba(124, 255, 186, 0.012) 1px, transparent 1px);
     background-size: 40px 40px;
@@ -375,7 +375,7 @@
     position: relative;
     overflow: hidden;
   }
-  /* Simulated bar chart */
+  /* Static bar chart */
   .chart-bars {
     display: flex;
     align-items: flex-end;
@@ -548,9 +548,9 @@
     border-radius: 0;
     background: linear-gradient(90deg, var(--accent-dark), var(--accent));
   }
-  
-  
-  
+
+
+
   .mini-progress-val { font-size: 12px; font-weight: 700; color: var(--text-secondary); white-space: nowrap; }
 
   /* ─── Perturbation grid ─── */
@@ -698,33 +698,6 @@
     grid-template-columns: 1.4fr 1fr;
     gap: 16px;
   }
-  .file-list { padding: 20px 24px; }
-  .file-list-title { font-size: 15px; font-weight: 700; color: var(--text-primary); margin-bottom: 16px; }
-  .file-item {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    padding: 10px 0;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.04);
-    cursor: pointer;
-    transition: color 0.2s;
-  }
-  .file-item:last-child { border-bottom: none; }
-  .file-item:hover .file-name { color: var(--accent); }
-  .file-icon {
-    width: 36px; height: 36px;
-    border-radius: 0;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 16px;
-    flex-shrink: 0;
-    background: rgba(124, 255, 186, 0.08);
-  }
-  .file-name { font-size: 13px; font-weight: 600; color: var(--text-primary); font-family: monospace; }
-  .file-desc { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
-  .file-size { margin-left: auto; font-size: 11px; color: var(--text-muted); white-space: nowrap; }
-
   .cmd-card { padding: 20px 24px; }
   .cmd-title { font-size: 15px; font-weight: 700; color: var(--text-primary); margin-bottom: 14px; }
   .cmd-block {
@@ -743,6 +716,116 @@
   }
   .cmd-block:hover { background: rgba(255, 255, 255, 0.04); }
   .cmd-label { font-size: 11px; color: var(--text-muted); margin-bottom: 5px; font-weight: 600; letter-spacing: 0.04em; }
+  .pipeline-card {
+    padding: 18px 18px 16px;
+    border-left: 3px solid rgba(124, 255, 186, 0.65);
+  }
+  .pipeline-step {
+    display: flex;
+    gap: 12px;
+    padding: 10px 0;
+    border-bottom: 1px solid rgba(255,255,255,0.05);
+  }
+  .pipeline-step:last-child { border-bottom: none; padding-bottom: 0; }
+  .pipeline-step b {
+    flex: 0 0 34px;
+    height: 24px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid rgba(124,255,186,0.22);
+    color: var(--accent);
+    font-family: monospace;
+    font-size: 11px;
+    background: rgba(124,255,186,0.06);
+  }
+  .pipeline-step span {
+    color: var(--text-secondary);
+    font-size: 12px;
+    line-height: 1.65;
+  }
+  .code-card {
+    background: rgba(5,7,6,0.78);
+    border: 1px solid rgba(124,255,186,0.14);
+    padding: 16px 18px;
+    overflow-x: auto;
+  }
+  .code-card pre {
+    margin: 0;
+    white-space: pre-wrap;
+    color: #bdfbd5;
+    font-family: 'SF Mono', 'Fira Code', monospace;
+    font-size: 11px;
+    line-height: 1.7;
+  }
+  .code-card .gold { color: var(--yellow); }
+  .code-card .blue { color: #9edfff; }
+  .note-list {
+    margin: 10px 0 0 0;
+    padding-left: 18px;
+    color: var(--text-secondary);
+    font-size: 12px;
+    line-height: 1.7;
+  }
+  .note-list li { margin: 4px 0; }
+  .apollo-ops-grid {
+    display: grid;
+    grid-template-columns: 1.15fr 0.95fr 0.9fr;
+    gap: 16px;
+    margin-top: 16px;
+  }
+  .apollo-info-card {
+    padding: 20px 22px;
+    min-height: 100%;
+  }
+  .apollo-info-title {
+    font-size: 15px;
+    font-weight: 800;
+    color: var(--text-primary);
+    margin-bottom: 12px;
+  }
+  .apollo-info-body {
+    color: var(--text-secondary);
+    font-size: 12px;
+    line-height: 1.7;
+  }
+  .apollo-info-list {
+    list-style: none;
+    padding: 0;
+    margin: 10px 0 0 0;
+    display: grid;
+    gap: 8px;
+  }
+  .apollo-info-list li {
+    color: var(--text-secondary);
+    font-size: 12px;
+    line-height: 1.6;
+    padding-left: 14px;
+    position: relative;
+  }
+  .apollo-info-list li:before {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: 0.7em;
+    width: 6px;
+    height: 1px;
+    background: var(--accent);
+  }
+  .apollo-kv {
+    display: grid;
+    gap: 8px;
+    margin-top: 10px;
+  }
+  .apollo-kv div {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 8px 0;
+    border-bottom: 1px solid rgba(255,255,255,0.05);
+  }
+  .apollo-kv span { color: var(--text-muted); font-size: 11px; }
+  .apollo-kv b { color: var(--accent); font-size: 12px; font-family: monospace; text-align: right; }
 
   /* ─── Recommendation cards ─── */
   .rec-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 14px; }
@@ -765,7 +848,7 @@
   /* ─── Responsive ─── */
   @media (max-width: 1200px) {
     .pert-grid, .kpi-row { grid-template-columns: repeat(2,1fr); }
-    .integration-grid   { grid-template-columns: 1fr; }
+    .integration-grid, .apollo-ops-grid   { grid-template-columns: 1fr; }
   }
   @media (max-width: 900px) {
     :root { --sidebar-w: 0px; }
@@ -845,9 +928,44 @@
     #m-val-rdi, #m-val-mld, #m-val-cmif, #m-val-dcs, #m-val-ajer, #m-val-rgi {
       color: #0f172a !important;
     }
-    .hbar-fill {
+    .hbar-fill, .mini-progress-fill, .pert-card {
       print-color-adjust: exact !important;
       -webkit-print-color-adjust: exact !important;
+    }
+    .pert-grid {
+      display: grid !important;
+      grid-template-columns: repeat(3, 1fr) !important;
+      gap: 12px !important;
+    }
+    .pert-card {
+      display: block !important;
+      break-inside: avoid !important;
+      page-break-inside: avoid !important;
+      background: #f8fafc !important;
+      color: #121820 !important;
+      border-top: 1px solid #e2e8f0 !important;
+      border-right: 1px solid #e2e8f0 !important;
+      border-bottom: 1px solid #e2e8f0 !important;
+    }
+    .pert-card::before {
+      display: none !important;
+    }
+    .pert-name, .pert-metric-val {
+      color: #0f172a !important;
+    }
+    .pert-sev, .pert-metric-label {
+      color: #475569 !important;
+    }
+    .pert-code {
+      background: rgba(11,192,160,0.10) !important;
+      color: #047857 !important;
+    }
+    .mini-progress-track {
+      background: #e2e8f0 !important;
+    }
+    .dash-section-head, .kpi-row, .pert-grid, .two-col, .three-col, .scene-row, .rec-grid, .apollo-ops-grid {
+      break-inside: avoid !important;
+      page-break-inside: avoid !important;
     }
   }
 </style>
@@ -909,7 +1027,6 @@
         ← 返回主页
       </a>
       <div style="padding:8px 12px;font-size:11px;color:var(--text-muted);">
-        数据截止 2026-06-27<br>
         50 基础帧 · 750 仿真场景
       </div>
     </div>
@@ -1250,7 +1367,74 @@
           </div>
         </div>
 
-      </div><!-- /pert-grid -->
+
+
+        <div class="pert-card glass-card good" data-cat="sensor">
+          <div class="pert-header">
+            <span class="pert-name">高斯噪声</span>
+            <span class="pert-sev">严重度 3/5</span>
+          </div>
+          <div class="pert-code">高斯噪声 (gaussian_noise)</div>
+          <div class="mini-progress">
+            <div class="mini-progress-track">
+              <div class="mini-progress-fill" style="width:60.2%"></div>
+            </div>
+            <span class="mini-progress-val" style="color:#0bc0a0">60.2%</span>
+          </div>
+          <div class="pert-metric">
+            <span class="pert-metric-label">对标无扰动基线跌幅</span>
+            <span class="pert-metric-val">−11.6%</span>
+          </div>
+          <div class="pert-metric">
+            <span class="pert-metric-label">检测数 / 非空帧</span>
+            <span class="pert-metric-val">174 / 47</span>
+          </div>
+        </div>
+
+        <div class="pert-card glass-card good" data-cat="sensor">
+          <div class="pert-header">
+            <span class="pert-name">JPEG 压缩</span>
+            <span class="pert-sev">严重度 2/5</span>
+          </div>
+          <div class="pert-code">压缩伪影 (jpeg_artifacts)</div>
+          <div class="mini-progress">
+            <div class="mini-progress-track">
+              <div class="mini-progress-fill" style="width:64.8%"></div>
+            </div>
+            <span class="mini-progress-val" style="color:#0bc0a0">64.8%</span>
+          </div>
+          <div class="pert-metric">
+            <span class="pert-metric-label">对标无扰动基线跌幅</span>
+            <span class="pert-metric-val">−7.0%</span>
+          </div>
+          <div class="pert-metric">
+            <span class="pert-metric-label">检测数 / 非空帧</span>
+            <span class="pert-metric-val">190 / 49</span>
+          </div>
+        </div>
+
+        <div class="pert-card glass-card good" data-cat="reference">
+          <div class="pert-header">
+            <span class="pert-name">Clean 基准</span>
+            <span class="pert-sev">严重度 0/5</span>
+          </div>
+          <div class="pert-code">无扰动基线 (clean_ref)</div>
+          <div class="mini-progress">
+            <div class="mini-progress-track">
+              <div class="mini-progress-fill" style="width:71.8%"></div>
+            </div>
+            <span class="mini-progress-val" style="color:#0bc0a0">71.8%</span>
+          </div>
+          <div class="pert-metric">
+            <span class="pert-metric-label">对标无扰动基线跌幅</span>
+            <span class="pert-metric-val">0.0%</span>
+          </div>
+          <div class="pert-metric">
+            <span class="pert-metric-label">检测数 / 非空帧</span>
+            <span class="pert-metric-val">221 / 50</span>
+          </div>
+        </div>
+</div><!-- /pert-grid -->
 
             <!-- ─── Section: Charts ─── -->
       <div style="margin-top:20px; margin-bottom:0; width:100%; display:flex; gap:20px; flex-wrap:wrap; align-items: stretch;">
@@ -1355,7 +1539,7 @@
             </div>
           </div>
           <div class="chart-sub" style="font-weight: bold; color: var(--accent); margin-bottom:16px;">基于 RDI/MLD/CMIF/DCS/AJER/RGI 指标结算的鲁棒性能指征</div>
-          
+
           <div style="display:flex; flex:1; gap:20px; align-items:center; flex-wrap:wrap; justify-content:center; margin-top:10px;">
             <!-- Radar SVG -->
             <div style="width:200px; height:200px; display:flex; justify-content:center; align-items:center;">
@@ -1372,7 +1556,7 @@
                 <line x1="100" y1="100" x2="100" y2="180" stroke="rgba(255,255,255,0.1)" stroke-width="1"/>
                 <line x1="100" y1="100" x2="30.72" y2="140" stroke="rgba(255,255,255,0.1)" stroke-width="1"/>
                 <line x1="100" y1="100" x2="30.72" y2="60" stroke="rgba(255,255,255,0.1)" stroke-width="1"/>
-                
+
                 <!-- Axis Labels -->
                 <text x="100" y="12" fill="var(--text-muted)" font-size="8" text-anchor="middle" font-family="'Space Mono', monospace">RDI</text>
                 <text x="178" y="58" fill="var(--text-muted)" font-size="8" text-anchor="start" font-family="'Space Mono', monospace">MLD</text>
@@ -1380,7 +1564,7 @@
                 <text x="100" y="192" fill="var(--text-muted)" font-size="8" text-anchor="middle" font-family="'Space Mono', monospace">DCS</text>
                 <text x="22" y="148" fill="var(--text-muted)" font-size="8" text-anchor="end" font-family="'Space Mono', monospace">AJER</text>
                 <text x="22" y="58" fill="var(--text-muted)" font-size="8" text-anchor="end" font-family="'Space Mono', monospace">RGI</text>
-                
+
                 <!-- Radar Polygon (Filled Shape) -->
                 <polygon id="radar-poly" points="" fill="rgba(11,192,160,0.2)" stroke="var(--accent)" stroke-width="1.5" style="transition: points 0.5s ease;"/>
                 <!-- Radar Points -->
@@ -1392,7 +1576,7 @@
                 <circle id="p-rgi" cx="100" cy="100" r="2.5" fill="var(--accent)" style="transition: cx 0.5s ease, cy 0.5s ease;"/>
               </svg>
             </div>
-            
+
             <!-- Metric details list -->
             <div style="flex:1; min-width:180px; display:flex; flex-direction:column; gap:8px;">
               <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid rgba(255,255,255,0.05); padding-bottom:4px;" title="鲁棒性下降指数 (Robustness Drop Index)：量化干扰下模型Recall衰减程度。越小越好。">
@@ -1512,66 +1696,78 @@
       <!-- ─── Section: Apollo Integration ─── -->
       <div class="dash-section-head" id="apollo" style="scroll-margin-top:80px">
         <h2 class="dash-section-title">Apollo / Dreamview+ 集成</h2>
-        <span class="dash-section-sub">接口演示与关键文件清单</span>
+        <span class="dash-section-sub">接口演示、RT 消息映射与可复现入口</span>
       </div>
 
-      <div class="integration-grid">
-        <div class="glass-card file-list">
-          <div class="file-list-title">关键文件清单</div>
-          <div class="file-item" tabindex="0" role="button">
-            <div>
-              <div class="file-name">scenario_catalog.jsonl</div>
-              <div class="file-desc">场景、障碍物、扰动与预期失效记录</div>
-            </div>
-            <div class="file-size">— KB</div>
-          </div>
-          <div class="file-item" tabindex="0" role="button">
-            <div>
-              <div class="file-name">robustness_metrics.json</div>
-              <div class="file-desc">聚合指标 (logs/)</div>
-            </div>
-            <div class="file-size">— KB</div>
-          </div>
-          <div class="file-item" tabindex="0" role="button">
-            <div>
-              <div class="file-name">per_scenario_metrics.csv</div>
-              <div class="file-desc">逐场景指标 (logs/)</div>
-            </div>
-            <div class="file-size">— KB</div>
-          </div>
-          <div class="file-item" tabindex="0" role="button">
-            <div>
-              <div class="file-name">yolo_best_pt_scenarios_obstacles.jsonl</div>
-              <div class="file-desc">Apollo 障碍物 JSONL (apollo_json/)</div>
-            </div>
-            <div class="file-size">— KB</div>
-          </div>
-          <div class="file-item" tabindex="0" role="button">
-            <div>
-              <div class="file-name">SCENARIO_TAXONOMY.md</div>
-              <div class="file-desc">场景分类体系文档 (docs/)</div>
-            </div>
-            <div class="file-size">— KB</div>
-          </div>
-          <div class="file-item" tabindex="0" role="button">
-            <div>
-              <div class="file-name">ROBUSTNESS_SUMMARY.md</div>
-              <div class="file-desc">鲁棒性评估总结 (docs/)</div>
-            </div>
-            <div class="file-size">— KB</div>
-          </div>
+      <div class="callout-card" style="margin-bottom:16px">
+        <div class="callout-title">系统集成与 Apollo RT 接口设计说明</div>
+        <p class="callout-body">
+          看板展示的是确定性离线评估与传感器回放结果；如需接入真实 Apollo 环境，可使用障碍物适配器将
+          YOLO / AVOD / BEVFusion 输出归一化为 <code>PerceptionObstacles</code>，
+          并通过 CyberRT 发布到 <code>/apollo/perception/obstacles</code>。
+          每条消息保留 <code>scenario_id</code>、<code>perturbation</code>、模型版本和置信度等元数据，便于在 Dreamview+ 与报告侧做同一场景的失效归因。
+        </p>
+      </div>
+
+      <div class="two-col" style="margin-bottom:16px">
+        <div class="glass-card pipeline-card">
+          <div class="apollo-info-title">RT 集成链路</div>
+          <div class="pipeline-step"><b>01</b><span>离线评估读取图片数据，生成 clean / perturbed 检测结果、逐场景指标和内部障碍物消息。</span></div>
+          <div class="pipeline-step"><b>02</b><span>Adapter 统一类别、坐标系、3D 尺寸、航向角、速度、置信度与时间戳字段。</span></div>
+          <div class="pipeline-step"><b>03</b><span>CyberRT 发布节点按固定频率写入 <code>/apollo/perception/obstacles</code>，Dreamview+ 与规划模块可直接订阅。</span></div>
+          <div class="pipeline-step"><b>04</b><span>看板与回放页面根据同一 <code>scenario_id</code> 对齐指标、图像、点云和注入消息。</span></div>
+        </div>
+        <div class="code-card">
+<pre><span class="gold">Input</span>: image file / image archive
+<span class="gold">Output</span>: service JSON result + Apollo RT message
+
+server_pipeline:
+  decode camera frames
+  run selected perception model
+  apply configured perturbation profile
+  compute robustness metrics
+  build PerceptionObstacles protobuf
+
+writer = cyber_node.create_writer(
+  <span class="blue">"/apollo/perception/obstacles"</span>,
+  PerceptionObstacles
+)
+writer.write(perception_obstacles_proto)</pre>
+        </div>
+      </div>
+
+      <div class="apollo-ops-grid">
+        <div class="glass-card cmd-card">
+          <div class="cmd-title">复现方式（相对项目目录）</div>
+          <div class="cmd-label">进入场景套件目录</div>
+          <div class="cmd-block" title="点击复制">cd ./scenario_suite</div>
+          <div class="cmd-label">发布障碍物消息</div>
+          <div class="cmd-block" title="点击复制">./run_apollo_demo_scenarios.sh</div>
+          <div class="cmd-label">检查 Cyber 通道</div>
+          <div class="cmd-block" title="点击复制">./check_obstacle_channel.sh</div>
+          <div class="cmd-label">Dreamview+ 访问地址</div>
+          <div class="cmd-block" title="点击复制">http://localhost:8888</div>
         </div>
 
-        <div class="glass-card cmd-card">
-          <div class="cmd-title">执行命令</div>
-          <div class="cmd-label">发布 750 场景 YOLO 障碍物</div>
-          <div class="cmd-block" title="点击复制">/home/matrix/autodrive_sim_eval/scenario_suite_20260627/run_apollo_demo_scenarios.sh</div>
-          <div class="cmd-label">检查 Cyber 通道</div>
-          <div class="cmd-block">/home/matrix/autodrive_sim_eval/scenario_suite_20260627/check_obstacle_channel.sh</div>
-          <div class="cmd-label">Dreamview+ 访问地址</div>
-          <div class="cmd-block">http://localhost:8888</div>
-          <div class="cmd-label">工作目录</div>
-          <div class="cmd-block">/home/matrix/autodrive_sim_eval/scenario_suite_20260627</div>
+        <div class="glass-card apollo-info-card">
+          <div class="apollo-info-title">运行条件</div>
+          <div class="apollo-info-body">Apollo RT 发布依赖评估主机上的 Apollo 容器、CyberRT 环境和场景套件脚本。网页本身只展示确定性评估与回放结果，不直接代表闭环规划仿真已运行。</div>
+          <ul class="apollo-info-list">
+            <li>场景套件目录可放在评估主机任意工作区，不依赖固定绝对路径。</li>
+            <li>容器名可通过 <code>CONTAINER</code> 覆盖，发布频率可通过 <code>RATE</code> 覆盖。</li>
+            <li>通道检查以 CyberRT 实际回显为准。</li>
+          </ul>
+        </div>
+
+        <div class="glass-card apollo-info-card">
+          <div class="apollo-info-title">结果返回</div>
+          <div class="apollo-info-body">评估服务接收图像输入并在服务端生成指标、状态和可视化产物；Apollo 接口侧写入运行时障碍物主题。</div>
+          <div class="apollo-kv">
+            <div><span>上传输入</span><b>image / archive</b></div>
+            <div><span>服务结果</span><b>JSON response</b></div>
+            <div><span>RT Topic</span><b>/apollo/perception/obstacles</b></div>
+            <div><span>消息类型</span><b>PerceptionObstacles</b></div>
+          </div>
         </div>
       </div>
 
@@ -1612,8 +1808,8 @@
 
       <!-- Footer -->
       <footer style="margin-top:48px;padding-top:24px;border-top:1px solid rgba(124,255,186,0.1);text-align:center;font-size:12px;color:var(--text-muted)">
-        自动驾驶多场景扰动仿真与鲁棒性评估 &nbsp;·&nbsp; 生成于 2026-06-27 &nbsp;·&nbsp;
-        工作目录：<code style="font-family:monospace;font-size:11px;background:rgba(124,255,186,0.08);padding:2px 7px;border-radius:0;">/home/matrix/autodrive_sim_eval/scenario_suite_20260627</code>
+        自动驾驶多场景扰动仿真与鲁棒性评估 &nbsp;·&nbsp;
+        复现入口：<code style="font-family:monospace;font-size:11px;background:rgba(124,255,186,0.08);padding:2px 7px;border-radius:0;">./scenario_suite</code>
       </footer>
 
     </div><!-- /dash-body -->
@@ -1685,7 +1881,7 @@
       <h3 style="margin:0; font-size:18px; color:var(--accent); font-family:'Space Mono', monospace;">// 对抗测试任务 / 评估主机上传评估 (Unified Pressure Test)</h3>
       <button onclick="closeTaskConfig()" style="background:none; border:none; color:var(--text-muted); font-size:20px; cursor:pointer;">&times;</button>
     </div>
-    
+
     <!-- Setup View -->
     <div id="task-setup-view" style="display:flex; flex-direction:column; gap:16px;">
       <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px;">
@@ -1724,8 +1920,8 @@
       <div style="border:1px solid rgba(124,255,186,0.18); background:rgba(11,192,160,0.04); padding:14px; display:flex; flex-direction:column; gap:12px;">
         <div style="display:flex; justify-content:space-between; gap:12px; align-items:flex-start; flex-wrap:wrap;">
           <div>
-            <div style="font-family:'Space Mono', monospace; font-size:14px; color:var(--accent); font-weight:800;">远端数据上传 / 评估主机队列桥梁</div>
-            <div style="font-size:12px; color:var(--text-muted); margin-top:4px; line-height:1.6;">这里的“本机”指<strong style="color:var(--accent)">评估主机/你的主机</strong>，不是打开网页用户自己的电脑。上传包由评估主机网关接收，固定写入 <code>/dev/shm/driverobust_bridge</code>，单包与总桥接区默认均不超过 <code>500MB</code>。GitHub Pages 访问时默认使用你的评估主机 IP：<code>http://10.203.170.203:8765</code>；若浏览器因 HTTPS 混合内容拦截 HTTP 上传，请直接打开评估主机网关提供的 <code>http://10.203.170.203:8765/dashboard.html</code>。上传时会自动携带上方“模型/攻击算法/epsilon/数据集子集”作为同一份对抗测试任务配置。</div>
+            <div style="font-family:'Space Mono', monospace; font-size:14px; color:var(--accent); font-weight:800;">图片上传 / 评估主机队列桥梁</div>
+            <div style="font-size:12px; color:var(--text-muted); margin-top:4px; line-height:1.6;">这里的接收端是<strong style="color:var(--accent)">评估主机</strong>，不是打开网页用户自己的电脑。上传内容应为相机图片或图片压缩包；评估主机执行扰动/推理后再返回 JSON 结果。网关固定写入 <code>/dev/shm/driverobust_bridge</code>，单文件与总桥接区默认均不超过 <code>500MB</code>。GitHub Pages 访问时默认使用你的评估主机 IP：<code>http://10.203.170.203:8765</code>；若浏览器因 HTTPS 混合内容拦截 HTTP 上传，请直接打开评估主机网关提供的 <code>http://10.203.170.203:8765/dashboard.html</code>。上传时会自动携带上方“模型/攻击算法/epsilon/数据集子集”作为评估元数据。</div>
           </div>
           <span id="gateway-status-pill" style="font-size:11px; border:1px solid rgba(247,179,71,0.45); color:var(--yellow); padding:4px 8px; font-family:'Space Mono', monospace;">QUEUE UNKNOWN</span>
         </div>
@@ -1748,58 +1944,48 @@
           <label style="display:flex; flex-direction:column; gap:6px; font-size:12px; color:var(--text-muted);">上传令牌（可空）
             <input id="gateway-token" type="password" placeholder="X-Upload-Token" style="background:#18202b; border:1px solid rgba(255,255,255,0.1); color:var(--text-primary); padding:8px; font-family:inherit;">
           </label>
-          <label style="grid-column:1/-1; display:flex; flex-direction:column; gap:6px; font-size:12px; color:var(--text-muted);">评估包（.zip / .tar.gz / .tgz / .tar，根目录含 manifest.json）
-            <input id="gateway-file" type="file" accept=".zip,.tar,.gz,.tgz,.json,application/zip,application/gzip,application/json" style="background:#18202b; border:1px solid rgba(255,255,255,0.1); color:var(--text-primary); padding:8px; font-family:inherit;">
+          <label style="grid-column:1/-1; display:flex; flex-direction:column; gap:6px; font-size:12px; color:var(--text-muted);">图片文件或图片包（.jpg/.png/.webp 或 .zip/.tar.gz/.tgz/.tar）
+            <input id="gateway-file" type="file" accept="image/*,.jpg,.jpeg,.png,.webp,.bmp,.tif,.tiff,.zip,.tar,.gz,.tgz,application/zip,application/gzip" style="background:#18202b; border:1px solid rgba(255,255,255,0.1); color:var(--text-primary); padding:8px; font-family:inherit;">
           </label>
         </div>
-        <div style="font-size:12px; color:var(--text-muted); line-height:1.6; border-left:3px solid var(--accent); padding-left:10px;">功能对齐规则：上方选择的 <code>model / attack / epsilon / dataset_subset</code> 会同时用于“启动评估主机内置任务”和“上传包加入队列”。上传时浏览器会发送 <code>X-Task-Config</code>，评估主机保存为 <code>task_config.json</code>，评估钩子可直接读取。</div>
+        <div style="font-size:12px; color:var(--text-muted); line-height:1.6; border-left:3px solid var(--accent); padding-left:10px;">功能对齐规则：用户上传的是图片数据；上方选择的 <code>model / attack / epsilon / dataset_subset</code> 仅作为请求头元数据发送。评估主机完成推理后通过接口响应、<code>/api/results/&lt;job_id&gt;</code> 或 Callback URL 返回 JSON 指标结果。</div>
         <details style="font-size:12px; color:var(--text-muted); line-height:1.7;">
-          <summary style="cursor:pointer; color:var(--accent); font-weight:800; font-family:'Space Mono', monospace;">上传规范 / manifest.json</summary>
-          <pre style="margin-top:8px; white-space:pre-wrap; background:#0a0f18; border:1px solid rgba(255,255,255,0.08); padding:10px; color:#d7ffe9; font-size:11px;">{
-  "spec_version": "driverobust-eval-upload-v1",
-  "task_id": "remote-task-0001",
-  "dataset_type": "kitti | nuscenes | custom",
-  "sensor_suite": ["camera", "lidar"],
-  "frame_count": 50,
-  "files": {
-    "images": "inputs/images/ or samples/CAM_*/",
-    "lidar": "inputs/lidar/ or velodyne/",
-    "calib": "calib/",
-    "labels": "labels/ or annotations/"
-  },
-  "task_config": {
-    "task_type": "adversarial_evaluation",
-    "model": "bevfusion",
-    "attack": "pgd",
-    "epsilon": 0.015,
-    "dataset_subset": "small50"
-  },
-  "callback_url": "https://server.example.com/api/results"
-}</pre>
+          <summary style="cursor:pointer; color:var(--accent); font-weight:800; font-family:'Space Mono', monospace;">图片包结构说明</summary>
+          <pre style="margin-top:8px; white-space:pre-wrap; background:#0a0f18; border:1px solid rgba(255,255,255,0.08); padding:10px; color:#d7ffe9; font-size:11px;">driverobust_images.zip
+  inputs/images/
+    frame_000001.jpg
+    frame_000002.jpg
+    ...
+  labels/        (optional)
+  calib/         (optional)
+
+Result:
+  evaluation service returns JSON metrics,
+  status and artifact links after processing.</pre>
         </details>
         <div style="display:flex; gap:10px; justify-content:flex-end; flex-wrap:wrap;">
           <button onclick="checkGatewayHealth()" style="background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.1); color:var(--text-primary); padding:8px 14px; font-size:12px; font-weight:700; cursor:pointer; font-family:'Space Mono', monospace;">检测评估主机桥梁</button>
-          <button onclick="uploadGatewayPackage()" style="background:var(--yellow); border:none; color:#121820; padding:8px 14px; font-size:12px; font-weight:800; cursor:pointer; font-family:'Space Mono', monospace;">上传包并加入评估队列</button>
+          <button onclick="uploadGatewayPackage()" style="background:var(--yellow); border:none; color:#121820; padding:8px 14px; font-size:12px; font-weight:800; cursor:pointer; font-family:'Space Mono', monospace;">上传图片并提交评估</button>
         </div>
         <div id="gateway-log" style="background:#0a0f18; border:1px solid rgba(255,255,255,0.08); color:#d7ffe9; font-family:'Space Mono', monospace; font-size:11px; padding:10px; min-height:48px; max-height:120px; overflow:auto; white-space:pre-wrap;">评估主机桥梁未检测。</div>
       </div>
 
       <div style="display:flex; justify-content:flex-end; gap:12px; border-top:1px solid rgba(255,255,255,0.1); padding-top:16px; margin-top:8px;">
         <button onclick="closeTaskConfig()" style="background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.1); color:var(--text-primary); padding:8px 16px; font-size:12px; font-weight:700; cursor:pointer; font-family:'Space Mono', monospace;">取消</button>
-        <button onclick="launchTask()" style="background:var(--accent); border:none; color:#121820; padding:8px 16px; font-size:12px; font-weight:700; cursor:pointer; font-family:'Space Mono', monospace;">启动评估主机内置任务</button>
+        <button onclick="launchTask()" style="background:var(--accent); border:none; color:#121820; padding:8px 16px; font-size:12px; font-weight:700; cursor:pointer; font-family:'Space Mono', monospace;">检查评估环境</button>
       </div>
     </div>
-    
+
     <!-- Running Console View -->
     <div id="task-console-view" style="display:none; flex-direction:column; gap:16px;">
       <div style="display:flex; justify-content:space-between; font-size:12px; color:var(--text-muted); font-family:'Space Mono', monospace;">
-        <span>测试流水线状态: <span style="color:var(--accent); animation: blink 1s infinite;">RUNNING</span></span>
-        <span>GPU 0: NVIDIA GeForce RTX 4060 Laptop GPU | VRAM: <span id="console-vram">0</span> GB</span>
+        <span>评估环境状态: <span id="task-status-label" style="color:var(--text-muted);">未检查</span></span>
+        <span><span id="task-runtime-meta">后端状态待检查</span></span>
       </div>
-      <!-- Simulated command console -->
+      <!-- Environment status console -->
       <div id="console-output" style="background:#0a0f18; border:1px solid rgba(255,255,255,0.1); color:#38ef7d; font-family:'Space Mono', monospace; font-size:11px; padding:15px; height:200px; overflow-y:auto; white-space:pre-wrap; border-radius:4px; line-height:1.5;"></div>
       <div style="display:flex; justify-content:flex-end; gap:12px; border-top:1px solid rgba(255,255,255,0.1); padding-top:16px;">
-        <button id="console-abort-btn" onclick="abortTask()" style="background:rgba(247,106,92,0.1); border:1px solid var(--red); color:var(--red); padding:8px 16px; font-size:12px; font-weight:700; cursor:pointer; font-family:'Space Mono', monospace;">强行中止 (Abort)</button>
+        <button id="console-abort-btn" onclick="abortTask()" style="background:rgba(247,106,92,0.1); border:1px solid var(--red); color:var(--red); padding:8px 16px; font-size:12px; font-weight:700; cursor:pointer; font-family:'Space Mono', monospace;">关闭</button>
       </div>
     </div>
   </div>
@@ -1861,7 +2047,7 @@
   function renderWeakTable() {
     // 1. Filter
     let filtered = WEAK_SCENARIOS_DATA.filter(row => {
-      return row.id.toLowerCase().includes(tableSearchQuery) || 
+      return row.id.toLowerCase().includes(tableSearchQuery) ||
              row.type.toLowerCase().includes(tableSearchQuery);
     });
 
@@ -1915,7 +2101,7 @@
     const paginDiv = document.querySelector('.pagination');
     if (paginDiv) {
       paginDiv.innerHTML = '';
-      
+
       for (let i = 1; i <= totalPages; i++) {
         const btn = document.createElement('button');
         btn.className = `page-btn ${i === currentTablePage ? 'active' : ''}`;
@@ -1927,7 +2113,7 @@
         };
         paginDiv.appendChild(btn);
       }
-      
+
       const infoSpan = document.createElement('span');
       infoSpan.className = 'page-info';
       infoSpan.textContent = `共 ${totalItems} 条`;
@@ -2287,7 +2473,13 @@
     const fileInput = document.getElementById('gateway-file');
     const file = fileInput?.files?.[0];
     if (!file) {
-      gatewayLog('请先选择评估包文件。');
+      gatewayLog('请先选择图片文件或图片压缩包。');
+      return;
+    }
+    const lowerName = file.name.toLowerCase();
+    const allowedImageInput = /\.(jpe?g|png|webp|bmp|tiff?|zip|tar|tgz|tar\.gz)$/i.test(lowerName);
+    if (!allowedImageInput || /\.(json|jsonl)$/i.test(lowerName)) {
+      gatewayLog('请上传图片文件或图片压缩包；JSON 为评估服务端返回结果格式，上传输入为图片数据。');
       return;
     }
     const endpoint = (document.getElementById('gateway-endpoint')?.value || '').trim();
@@ -2310,7 +2502,7 @@
     const taskConfig = getUnifiedTaskConfig();
     headers['X-Task-Config'] = encodeURIComponent(JSON.stringify(taskConfig));
 
-    gatewayLog(`开始上传 ${file.name} (${file.size} bytes)，超过 500MB 会被评估主机桥梁拒绝。`, {task_config: taskConfig});
+    gatewayLog(`开始上传图片数据 ${file.name} (${file.size} bytes)，超过 500MB 会被评估主机桥梁拒绝。`, {task_config: taskConfig});
     try {
       const res = await fetch(url.toString(), {method: 'POST', headers, body: file});
       const text = await res.text();
@@ -2318,7 +2510,7 @@
       try { data = JSON.parse(text); } catch (_) { data = {raw: text}; }
       if (res.ok) {
         setGatewayPill(data.queue_note ? 'QUEUED / 已排队' : 'ACCEPTED / 已接收', data.queue_note ? 'queue' : 'ready');
-        gatewayLog('上传已接收；若仿真未就绪则已进入队列。', data);
+        gatewayLog('图片已接收；评估结果将通过接口响应、结果查询接口或 Callback URL 输出。', data);
       } else {
         setGatewayPill('REJECTED / 被拒绝', 'error');
         gatewayLog('上传被评估主机桥梁拒绝。', data);
@@ -2331,94 +2523,126 @@
   };
 
   let consoleInterval = null;
-  window.launchTask = function() {
-    // Switch views
+
+  function getAdversarialTaskConfigFromForm() {
+    return {
+      model: document.getElementById('task-model-select')?.value || 'bevfusion',
+      attack: document.getElementById('task-attack-select')?.value || 'pgd',
+      epsilon: Number(document.getElementById('task-eps')?.value || 0.015),
+      dataset_subset: document.getElementById('task-dataset-select')?.value || 'small50'
+    };
+  }
+
+  async function resolveEvaluationEnvironment() {
+    const healthInput = document.getElementById('gateway-health') || document.getElementById('health-endpoint');
+    const url = (healthInput?.value || '').trim();
+    if (!url) {
+      return {connected: false, reason: '未配置评估主机状态接口。', data: null};
+    }
+    try {
+      const res = await fetch(url, {cache: 'no-store'});
+      const data = await res.json();
+      if (!res.ok) {
+        return {connected: false, reason: `状态接口返回 HTTP ${res.status}。`, data};
+      }
+      return {connected: true, reason: '', data};
+    } catch (err) {
+      return {connected: false, reason: `状态接口不可达：${String(err)}`, data: null};
+    }
+  }
+
+  function setTaskRuntimeStatus(text, color, meta) {
+    const label = document.getElementById('task-status-label');
+    const runtime = document.getElementById('task-runtime-meta');
+    if (label) {
+      label.textContent = text;
+      label.style.color = color || 'var(--text-muted)';
+      label.style.animation = 'none';
+    }
+    if (runtime) runtime.textContent = meta || '';
+  }
+
+  window.launchTask = async function() {
+    if (consoleInterval) {
+      clearInterval(consoleInterval);
+      consoleInterval = null;
+    }
     document.getElementById('task-setup-view').style.display = 'none';
     document.getElementById('task-console-view').style.display = 'flex';
 
-    const taskConfig = getUnifiedTaskConfig();
-    const model = taskConfig.model;
-    const attack = taskConfig.attack;
-    const eps = taskConfig.epsilon;
-    const subset = taskConfig.dataset_subset;
-
+    const taskConfig = (typeof getUnifiedTaskConfig === 'function') ? getUnifiedTaskConfig() : getAdversarialTaskConfigFromForm();
     const consoleDiv = document.getElementById('console-output');
-    consoleDiv.textContent = '';
-    
-    const logs = [
-      `$ conda activate base`,
-      `[sys] conda environment activated successfully.`,
-      `$ python run_evaluator.py --model ${model} --attack ${attack} --eps ${eps} --subset ${subset}`,
-      `[art] Estimator initialization sequence started...`,
-      `[art] PyTorchClassifier loaded with weights /models/${model}_best.pt`,
-      `[sys] Allocating GPU memory on Device 0...`,
-      `[gpu] GPU memory allocated: 4.8 GB`,
-      `[sys] Running adversarial perturbation calculation for ${subset} dataset...`,
-      `[art] Starting white-box ${attack.toUpperCase()} attack optimization...`,
-      `[sys] Step 01/10: Loss = 1.842 | Time: 0.12s`,
-      `[sys] Step 02/10: Loss = 2.104 | Time: 0.11s`,
-      `[sys] Step 03/10: Loss = 2.385 | Time: 0.12s`,
-      `[sys] Step 04/10: Loss = 2.712 | Time: 0.11s`,
-      `[sys] Step 05/10: Loss = 3.018 | Time: 0.12s`,
-      `[sys] Step 06/10: Loss = 3.421 | Time: 0.11s`,
-      `[sys] Step 07/10: Loss = 3.794 | Time: 0.12s`,
-      `[sys] Step 08/10: Loss = 4.108 | Time: 0.11s`,
-      `[sys] Step 09/10: Loss = 4.412 | Time: 0.12s`,
-      `[sys] Step 10/10: Loss = 4.685 | Time: 0.11s`,
-      `[art] Perturbed outputs serialized into /data/logs/${model}_${attack}_eps_${eps}.json`,
-      `[sys] Calculating six-dimensional safety metrics...`,
-      `[sys] DCS Consistency: 0.825 | MLD Drift: 0.64m | RDI Drop: 0.382`,
-      `[sys] Evaluation pipeline complete. Success!`,
-      `[sys] Rendering results to evaluation dashboard...`
-    ];
-
-    let logIndex = 0;
     const vramSpan = document.getElementById('console-vram');
-    
-    consoleInterval = setInterval(() => {
-      if (logIndex < logs.length) {
-        consoleDiv.textContent += logs[logIndex] + '\n';
-        consoleDiv.scrollTop = consoleDiv.scrollHeight;
-        
-        // Simulate VRAM changes
-        if (logIndex >= 5 && logIndex <= 20) {
-          vramSpan.textContent = (4.8 + Math.random() * 0.4).toFixed(1);
-        } else {
-          vramSpan.textContent = '0';
-        }
-        
-        logIndex++;
-      } else {
-        clearInterval(consoleInterval);
-        setTimeout(() => {
-          closeTaskConfig();
-          // Update the dashboard radar view to represent the test target
-          const radarTab = document.querySelectorAll('.radar-tab');
-          if (model === 'bevfusion' && radarTab[2]) {
-            window.switchRadarModel(radarTab[2], 'bevfusion');
-          } else if (model === 'avod' && radarTab[1]) {
-            window.switchRadarModel(radarTab[1], 'avod');
-          } else if (radarTab[0]) {
-            window.switchRadarModel(radarTab[0], 'yolov5s');
-          }
-        }, 1500);
-      }
-    }, 400);
+    if (vramSpan) vramSpan.textContent = '--';
+    setTaskRuntimeStatus('检查中', 'var(--yellow)', '评估主机状态接口');
+    consoleDiv.textContent = [
+      `[config] model=${taskConfig.model} attack=${taskConfig.attack} epsilon=${taskConfig.epsilon} dataset=${taskConfig.dataset_subset}`,
+      '[env] 正在检查评估环境。'
+    ].join('\n') + '\n';
+
+    const env = await resolveEvaluationEnvironment();
+    if (!env.connected) {
+      setTaskRuntimeStatus('未配置', 'var(--red)', '未连接评估后端');
+      consoleDiv.textContent += [
+        `[env] ${env.reason}`,
+        '[env] 未启动对抗测试任务。',
+        '[env] 运行日志区域仅显示真实环境检查结果。'
+      ].join('\n') + '\n';
+      consoleDiv.scrollTop = consoleDiv.scrollHeight;
+      return;
+    }
+
+    const data = env.data || {};
+    const runnerReady = Boolean(data.runner);
+    const simulationReady = Boolean(data.simulation_ready);
+    consoleDiv.textContent += `[env] 评估主机状态：${data.status || 'unknown'} | queue_depth=${data.queue_depth ?? '--'} | runner=${data.runner || 'not configured'}\n`;
+    if (!simulationReady || !runnerReady) {
+      setTaskRuntimeStatus('未就绪', 'var(--yellow)', runnerReady ? '仿真标记未启用' : '评估钩子未配置');
+      consoleDiv.textContent += [
+        '[env] 评估环境尚未满足启动条件。',
+        `[env] simulation_ready=${simulationReady} runner_configured=${runnerReady}`,
+        '[env] 当前任务未启动。'
+      ].join('\n') + '\n';
+      consoleDiv.scrollTop = consoleDiv.scrollHeight;
+      return;
+    }
+
+    setTaskRuntimeStatus('可提交', 'var(--accent)', '评估后端已就绪');
+    consoleDiv.textContent += [
+      '[env] 评估后端已就绪。',
+      '[env] 当前页面显示环境检查与任务入口状态；执行日志由评估主机运行时生成。',
+      '[env] 结果通过接口响应、/api/results/<job_id> 或 Callback URL 输出为 JSON。'
+    ].join('\n') + '\n';
+    consoleDiv.scrollTop = consoleDiv.scrollHeight;
   };
 
   window.abortTask = function() {
-    if (consoleInterval) clearInterval(consoleInterval);
-    const consoleDiv = document.getElementById('console-output');
-    consoleDiv.textContent += '\n\n[sys] task aborted by user request.\n';
-    consoleDiv.scrollTop = consoleDiv.scrollHeight;
-    document.getElementById('console-vram').textContent = '0';
-    setTimeout(() => {
-      closeTaskConfig();
-    }, 1000);
+    if (consoleInterval) {
+      clearInterval(consoleInterval);
+      consoleInterval = null;
+    }
+    closeTaskConfig();
   };
 
+  function resetPerturbationExportView() {
+    const tabs = Array.from(document.querySelectorAll('.filter-tab'));
+    tabs.forEach((tab, idx) => {
+      const isAll = idx === 0 || tab.textContent.includes('全部');
+      tab.classList.toggle('active', isAll);
+      tab.setAttribute('aria-selected', isAll ? 'true' : 'false');
+    });
+    document.querySelectorAll('.pert-card').forEach(card => {
+      card.style.display = '';
+      card.style.animation = 'none';
+    });
+  }
+
   window.exportPDFReport = function() {
-    window.print();
+    resetPerturbationExportView();
+    renderWeakTable();
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => window.print());
+    });
   };
 </script>
 </body>

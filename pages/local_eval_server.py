@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-DriveRobust local evaluation upload gateway.
+DriveRobust evaluation-host upload gateway.
 
 Run from this folder:
   python3 local_eval_server.py --host 0.0.0.0 --port 8765
@@ -36,6 +36,7 @@ from typing import Any, Dict, List, Optional, Tuple
 BASE_DIR = Path(__file__).resolve().parent
 SPEC_VERSION = "driverobust-eval-upload-v1"
 DEFAULT_LIMIT_BYTES = 500 * 1024 * 1024
+IMAGE_EXTS = (".jpg", ".jpeg", ".png", ".webp", ".bmp", ".tif", ".tiff")
 
 FIXED_STORAGE_ROOT = Path(os.environ.get("DRIVEROBUST_FIXED_STORAGE_ROOT", "/dev/shm/driverobust_bridge")).expanduser()
 STORAGE_ROOT = FIXED_STORAGE_ROOT
@@ -161,6 +162,10 @@ def is_safe_archive_name(name: str) -> bool:
     return not (p.is_absolute() or ".." in p.parts or name.startswith(("/", "\\")))
 
 
+def is_image_name(name: str) -> bool:
+    return name.lower().endswith(IMAGE_EXTS)
+
+
 def detect_archive(path: Path) -> str:
     lower = path.name.lower()
     if lower.endswith(".zip"):
@@ -168,32 +173,10 @@ def detect_archive(path: Path) -> str:
     if lower.endswith((".tar.gz", ".tgz", ".tar")):
         return "tar"
     if lower.endswith((".json", ".jsonl")):
-        return "single-json"
+        return "json-rejected"
+    if is_image_name(lower):
+        return "single-image"
     return "unknown"
-
-
-def validate_manifest_obj(obj: Dict[str, Any]) -> List[str]:
-    errors: List[str] = []
-    if obj.get("spec_version") != SPEC_VERSION:
-        errors.append(f"manifest.spec_version must be {SPEC_VERSION!r}")
-    for key in ("task_id", "dataset_type", "sensor_suite", "frame_count", "files"):
-        if key not in obj:
-            errors.append(f"manifest.{key} is required")
-    if "dataset_type" in obj and obj["dataset_type"] not in ("kitti", "nuscenes", "custom"):
-        errors.append("manifest.dataset_type must be one of: kitti, nuscenes, custom")
-    if "sensor_suite" in obj and not isinstance(obj["sensor_suite"], list):
-        errors.append("manifest.sensor_suite must be an array")
-    if "frame_count" in obj:
-        try:
-            if int(obj["frame_count"]) <= 0:
-                errors.append("manifest.frame_count must be positive")
-        except Exception:
-            errors.append("manifest.frame_count must be an integer")
-    if "files" in obj and not isinstance(obj["files"], dict):
-        errors.append("manifest.files must be an object")
-    if "task_config" in obj and not isinstance(obj["task_config"], dict):
-        errors.append("manifest.task_config must be an object when provided")
-    return errors
 
 
 def parse_task_config(value: str) -> Tuple[Dict[str, Any], Optional[str]]:
@@ -218,19 +201,21 @@ def parse_task_config(value: str) -> Tuple[Dict[str, Any], Optional[str]]:
         return {}, f"task_config parse error: {exc}"
 
 
-def manifest_task_config(manifest: Optional[Dict[str, Any]]) -> Dict[str, Any]:
-    if not isinstance(manifest, dict):
-        return {}
-    cfg = manifest.get("task_config") or manifest.get("adversarial_task") or {}
-    return cfg if isinstance(cfg, dict) else {}
+def validate_archive(path: Path) -> Tuple[None, List[str], Dict[str, Any]]:
+    """Return validation errors and upload stats for image inputs.
 
-
-def validate_archive(path: Path) -> Tuple[Optional[Dict[str, Any]], List[str], Dict[str, Any]]:
-    """Return manifest, validation errors, archive stats."""
+    Accepted payloads are a single image file or an archive containing image
+    files. JSON/JSONL files are result/API formats and are rejected as uploaded
+    evaluation data.
+    """
     kind = detect_archive(path)
     errors: List[str] = []
-    stats: Dict[str, Any] = {"archive_type": kind, "member_count": 0, "manifest_found": False}
-    manifest: Optional[Dict[str, Any]] = None
+    stats: Dict[str, Any] = {
+        "archive_type": kind,
+        "member_count": 0,
+        "image_count": 0,
+        "image_examples": [],
+    }
 
     try:
         if kind == "zip":
@@ -238,50 +223,41 @@ def validate_archive(path: Path) -> Tuple[Optional[Dict[str, Any]], List[str], D
                 bad = zf.testzip()
                 if bad:
                     errors.append(f"zip CRC check failed at {bad}")
-                names = zf.namelist()
+                names = [n for n in zf.namelist() if not n.endswith("/")]
                 stats["member_count"] = len(names)
                 unsafe = [n for n in names if not is_safe_archive_name(n)]
                 if unsafe:
                     errors.append(f"unsafe archive paths: {unsafe[:5]}")
-                if "manifest.json" in names:
-                    stats["manifest_found"] = True
-                    manifest = json.loads(zf.read("manifest.json").decode("utf-8"))
-                else:
-                    errors.append("manifest.json must exist at archive root")
+                image_names = [n for n in names if is_image_name(n)]
+                stats["image_count"] = len(image_names)
+                stats["image_examples"] = image_names[:8]
+                if not image_names:
+                    errors.append("upload archive must contain at least one image file")
         elif kind == "tar":
             with tarfile.open(path) as tf:
-                members = tf.getmembers()
+                members = [m for m in tf.getmembers() if m.isfile()]
                 stats["member_count"] = len(members)
                 unsafe = [m.name for m in members if not is_safe_archive_name(m.name)]
                 if unsafe:
                     errors.append(f"unsafe archive paths: {unsafe[:5]}")
-                found = next((m for m in members if m.name == "manifest.json"), None)
-                if found:
-                    stats["manifest_found"] = True
-                    f = tf.extractfile(found)
-                    if f:
-                        manifest = json.loads(f.read().decode("utf-8"))
-                else:
-                    errors.append("manifest.json must exist at archive root")
-        elif kind == "single-json":
+                image_names = [m.name for m in members if is_image_name(m.name)]
+                stats["image_count"] = len(image_names)
+                stats["image_examples"] = image_names[:8]
+                if not image_names:
+                    errors.append("upload archive must contain at least one image file")
+        elif kind == "single-image":
             stats["member_count"] = 1
-            if path.name.lower().endswith(".json"):
-                manifest = json.loads(path.read_text(encoding="utf-8"))
-                stats["manifest_found"] = True
-            else:
-                errors.append("single .jsonl uploads are accepted only as attachments inside a zip/tar package")
+            stats["image_count"] = 1
+            stats["image_examples"] = [path.name]
+        elif kind == "json-rejected":
+            stats["member_count"] = 1
+            errors.append("JSON/JSONL is a result/API format; upload image files or an image archive")
         else:
-            errors.append("unsupported archive type; use .zip, .tar.gz, .tgz, .tar or manifest .json")
+            errors.append("unsupported upload type; use an image file (.jpg/.jpeg/.png/.webp/.bmp/.tif/.tiff) or an image archive (.zip/.tar.gz/.tgz/.tar)")
     except Exception as exc:
-        errors.append(f"archive/manifest parse error: {exc}")
+        errors.append(f"upload parse error: {exc}")
 
-    if manifest is not None:
-        if not isinstance(manifest, dict):
-            errors.append("manifest.json must be a JSON object")
-        else:
-            errors.extend(validate_manifest_obj(manifest))
-    return manifest, errors, stats
-
+    return None, errors, stats
 
 def simulation_ready() -> bool:
     return os.environ.get("DRIVEROBUST_SIM_READY", "").lower() in ("1", "true", "yes", "ready") or READY_MARKER.exists()
@@ -317,7 +293,7 @@ def post_callback(callback_url: str, payload: Dict[str, Any]) -> Dict[str, Any]:
     req = urllib.request.Request(
         callback_url,
         data=body,
-        headers={"Content-Type": "application/json", "User-Agent": "DriveRobustLocalEval/1.0"},
+        headers={"Content-Type": "application/json", "User-Agent": "DriveRobustEvalHost/1.0"},
         method="POST",
     )
     try:
@@ -364,8 +340,7 @@ def process_job(job_id: str) -> None:
                     "job_id": job_id,
                     "status": "completed",
                     "evaluation_mode": "validation_only",
-                    "note": "Simulation marker is ready but no evaluate_job.py/.sh hook was found; archive validation metadata returned.",
-                    "manifest": job.get("manifest"),
+                    "note": "Simulation marker is ready but no evaluate_job.py/.sh hook was found; image upload validation metadata returned.",
                     "task_config": job.get("task_config"),
                     "archive_stats": job.get("archive_stats"),
                     "completed_at": now_iso(),
@@ -384,7 +359,7 @@ def process_job(job_id: str) -> None:
             write_json(result_path, result)
             job.update({"status": "failed", "error": str(exc), "result_path": display_path(result_path), "completed_at": result["completed_at"], "updated_at": result["completed_at"]})
 
-        callback_url = job.get("callback_url") or (job.get("manifest") or {}).get("callback_url")
+        callback_url = job.get("callback_url")
         if callback_url:
             cb = post_callback(callback_url, result)
             job["callback"] = {"url": callback_url, **cb, "sent_at": now_iso()}
@@ -415,7 +390,7 @@ def list_jobs() -> List[Dict[str, Any]]:
 
 
 class Handler(SimpleHTTPRequestHandler):
-    server_version = "DriveRobustLocalEval/1.1"
+    server_version = "DriveRobustEvalHost/1.2"
 
     def end_headers(self) -> None:
         self.send_header("Access-Control-Allow-Origin", "*")
@@ -449,7 +424,7 @@ class Handler(SimpleHTTPRequestHandler):
             jobs = list_jobs()
             queued = sum(1 for j in jobs if j.get("status") in ("queued", "retry"))
             self.send_json(200, {
-                "service": "DriveRobust local evaluation gateway",
+                "service": "DriveRobust evaluation host gateway",
                 "status": "ready" if simulation_ready() else "queueing",
                 "simulation_ready": simulation_ready(),
                 "ready_marker": display_path(READY_MARKER),
@@ -546,10 +521,10 @@ class Handler(SimpleHTTPRequestHandler):
             self.send_json(400, {"error": "upload stream ended early"})
             return
 
-        manifest, errors, stats = validate_archive(archive_path)
+        _, errors, stats = validate_archive(archive_path)
         if task_config_error:
             errors.append(task_config_error)
-        task_config = header_task_config or manifest_task_config(manifest)
+        task_config = header_task_config
         task_config_path = job_dir / "task_config.json"
         if task_config:
             write_json(task_config_path, task_config)
@@ -567,7 +542,6 @@ class Handler(SimpleHTTPRequestHandler):
             "archive_path": str(archive_path),
             "archive_bytes": length,
             "sha256": h.hexdigest(),
-            "manifest": manifest,
             "task_config": task_config,
             "task_config_path": str(task_config_path) if task_config else "",
             "archive_stats": stats,
@@ -582,33 +556,17 @@ def upload_spec() -> Dict[str, Any]:
     return {
         "spec_version": SPEC_VERSION,
         "endpoint": "POST /api/evaluate/upload",
-        "body": "raw binary archive (.zip/.tar.gz/.tgz/.tar) or manifest .json for dry-run validation",
+        "body": "raw image file (.jpg/.jpeg/.png/.webp/.bmp/.tif/.tiff) or image archive (.zip/.tar.gz/.tgz/.tar); JSON is returned by the service; image data is the upload input",
         "required_headers": ["X-File-Name"],
         "optional_headers": ["X-Job-Id", "X-Callback-Url", "X-Submitter", "X-Upload-Token", "X-Task-Config", "Authorization: Bearer <token>"],
         "limits": storage_info(),
-        "manifest_root_file": "manifest.json",
-        "manifest_schema": {
-            "spec_version": SPEC_VERSION,
-            "task_id": "string; stable task id from remote server",
-            "dataset_type": "kitti | nuscenes | custom",
-            "sensor_suite": ["camera", "lidar"],
-            "frame_count": "positive integer",
-            "files": {
-                "images": "inputs/images/ or samples/<CAM_NAME>/",
-                "lidar": "inputs/lidar/ or velodyne/ (optional)",
-                "calib": "calib/ (optional)",
-                "labels": "labels/ or annotations/ (optional)",
-            },
-            "callback_url": "optional HTTPS URL; result JSON will be POSTed here",
-            "task_config": {
-                "task_type": "adversarial_evaluation",
-                "model": "yolov5s | avod | bevfusion",
-                "attack": "pgd | fgsm | cw | deepfool",
-                "epsilon": "number",
-                "dataset_subset": "small50 | val_all | mini"
-            },
+        "request_metadata": {
+            "X-Job-Id": "optional stable task id from remote server",
+            "X-Submitter": "optional submitter identifier",
+            "X-Callback-Url": "optional HTTPS URL; result JSON will be POSTed here",
+            "X-Task-Config": "optional encoded task settings, e.g. model/attack/epsilon/dataset_subset",
         },
-        "task_config_rule": "Dashboard sends the unified adversarial settings in X-Task-Config and the gateway writes task_config.json next to job.json for evaluate_job.py/.sh.",
+        "task_config_rule": "Dashboard sends the unified adversarial settings in X-Task-Config and the gateway writes task_config.json next to job.json for evaluate_job.py/.sh. This header is metadata; image data remains the evaluation input.",
         "status_rule": "If <fixed-storage-root>/runtime/SIM_READY or DRIVEROBUST_SIM_READY=1 exists, queued jobs are evaluated; otherwise accepted jobs remain queued.",
         "runner_rule": "Place evaluate_job.py/.sh in the fixed <fixed-storage-root>/runtime/ or pages/runtime/, or set DRIVEROBUST_EVAL_RUNNER.",
         "result_endpoints": ["GET /api/tasks/<job_id>", "GET /api/results/<job_id>"],
@@ -616,7 +574,7 @@ def upload_spec() -> Dict[str, Any]:
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="DriveRobust local upload/evaluation bridge")
+    parser = argparse.ArgumentParser(description="DriveRobust evaluation-host upload/evaluation bridge")
     parser.add_argument("--host", default="127.0.0.1")
     parser.add_argument("--port", type=int, default=8765)
     parser.add_argument("--fixed-storage-root", default=str(FIXED_STORAGE_ROOT),
