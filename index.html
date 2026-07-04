@@ -401,8 +401,21 @@
       content.style.maxHeight = content.scrollHeight + 'px';
       icon.style.transform = 'rotate(180deg)';
       btn.querySelector('b').textContent = '[-]';
-    }
   });
+
+  // Dynamic Environment Detection and Redirection
+  const isHosted = window.location.protocol === 'https:' || window.location.hostname.includes('github.io');
+  if (!isHosted) {
+    document.querySelectorAll("a").forEach(a => {
+      let href = a.getAttribute("href");
+      if (href && href.startsWith("pages/")) {
+        a.setAttribute("href", href.replace("pages/", "pages_local/"));
+      }
+    });
+    document.title = "DriveRobust 评测展示平台 (本地端)";
+    const titleHeader = document.querySelector("h1 span");
+    if (titleHeader) titleHeader.textContent = "鲁棒评估平台 (本地端)";
+  }
 </script>
 </body>
 </html>
