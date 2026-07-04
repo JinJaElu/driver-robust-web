@@ -88493,6 +88493,7 @@ async function loadLidarForFrame(frameId) {
   drawBEV();
   draw3D();
   
+  // GitHub Pages / Hosted environment: load JS directly to avoid 404 errors for local-only binary data
   const isHosted = window.location.protocol === 'https:' || window.location.hostname.includes('github.io');
   if (isHosted) {
     try {
@@ -88510,13 +88511,13 @@ async function loadLidarForFrame(frameId) {
         throw new Error("LiDAR JS loaded but data missing");
       }
     } catch (jsErr) {
-      console.error("Failed to load LiDAR data via JS fallback:", jsErr);
+      console.error(`Failed to load LiDAR data for frame ${frameId} via JS fallback:`, jsErr);
     }
   } else {
-    // Try fetching binary data first (fast path for local server)
+    // Local environment: try fetching binary data first, then fall back to JS loader
     try {
       const resp = await fetch(`assets/velodyne/${frameId}.bin`);
-      if (!resp.ok) throw new Error("Fetch failed");
+      if (!resp.ok) throw new Error("Fetch failed with status " + resp.status);
       const buf = await resp.arrayBuffer();
       const data = new Float32Array(buf);
       lidarCache.set(frameId, data);
@@ -88526,7 +88527,7 @@ async function loadLidarForFrame(frameId) {
         draw3D();
       }
     } catch (err) {
-      // Fallback to JS loader (for GitHub Pages static deploy)
+      console.log(`Failed to fetch binary LiDAR data for frame ${frameId}, trying JS fallback...`, err);
       try {
         await loadScript(`assets/velodyne_js/${frameId}.js`);
         if (window.lidarData && window.lidarData[frameId]) {
@@ -88542,7 +88543,7 @@ async function loadLidarForFrame(frameId) {
           throw new Error("LiDAR JS loaded but data missing");
         }
       } catch (jsErr) {
-        console.error("Failed to load LiDAR data via fallback:", jsErr);
+        console.error(`Failed to load LiDAR data for frame ${frameId} via JS fallback:`, jsErr);
       }
     }
   }
@@ -88892,6 +88893,10 @@ function render(){
   const img=$('sceneImg');
   let loaded = false;
   
+  // Clear any existing warning banner
+  const warningBanner = $('warningBanner');
+  if (warningBanner) warningBanner.remove();
+  
   // Render Lidar immediately for instant feedback
   drawBEV();
   draw3D();
@@ -88901,6 +88906,8 @@ function render(){
       loaded = true;
       drawOverlay();
     }
+    const banner = $('warningBanner');
+    if (banner) banner.remove();
   };
   img.onerror = () => {
     showImageLoadWarning('SCENE_IMAGE', img.src);
@@ -88911,6 +88918,8 @@ function render(){
       loaded = true;
       drawOverlay();
     }
+    const banner = $('warningBanner');
+    if (banner) banner.remove();
   }
   renderInfo();
   loadLidarForFrame(f.base_frame_id);
