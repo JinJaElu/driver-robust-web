@@ -191,7 +191,38 @@ def validate_manifest_obj(obj: Dict[str, Any]) -> List[str]:
             errors.append("manifest.frame_count must be an integer")
     if "files" in obj and not isinstance(obj["files"], dict):
         errors.append("manifest.files must be an object")
+    if "task_config" in obj and not isinstance(obj["task_config"], dict):
+        errors.append("manifest.task_config must be an object when provided")
     return errors
+
+
+def parse_task_config(value: str) -> Tuple[Dict[str, Any], Optional[str]]:
+    """Parse a small JSON task configuration supplied by dashboard/upload page.
+
+    The browser sends it as encodeURIComponent(JSON.stringify(...)) in
+    X-Task-Config so it remains ASCII-safe for CORS/request headers.
+    """
+    if not value:
+        return {}, None
+    if len(value) > 16384:
+        return {}, "task_config header is too large"
+    try:
+        raw = urllib.parse.unquote(value)
+        obj = json.loads(raw)
+        if not isinstance(obj, dict):
+            return {}, "task_config must be a JSON object"
+        # Keep only JSON-serializable data and cap nested string sizes for metadata safety.
+        cleaned = json.loads(json.dumps(obj, ensure_ascii=False))
+        return cleaned, None
+    except Exception as exc:
+        return {}, f"task_config parse error: {exc}"
+
+
+def manifest_task_config(manifest: Optional[Dict[str, Any]]) -> Dict[str, Any]:
+    if not isinstance(manifest, dict):
+        return {}
+    cfg = manifest.get("task_config") or manifest.get("adversarial_task") or {}
+    return cfg if isinstance(cfg, dict) else {}
 
 
 def validate_archive(path: Path) -> Tuple[Optional[Dict[str, Any]], List[str], Dict[str, Any]]:
@@ -315,7 +346,7 @@ def process_job(job_id: str) -> None:
         try:
             if runner:
                 cmd = runner_command(runner, job_dir, archive, result_path)
-                env = {**os.environ, "DRIVEROBUST_STORAGE_ROOT": str(STORAGE_ROOT), "DRIVEROBUST_JOB_ID": job_id}
+                env = {**os.environ, "DRIVEROBUST_STORAGE_ROOT": str(STORAGE_ROOT), "DRIVEROBUST_JOB_ID": job_id, "DRIVEROBUST_TASK_CONFIG": str(job_dir / "task_config.json")}
                 proc = subprocess.run(cmd, cwd=str(BASE_DIR), text=True, capture_output=True,
                                       timeout=int(os.environ.get("DRIVEROBUST_EVAL_TIMEOUT", "7200")), env=env)
                 result = read_json(result_path, {}) if result_path.exists() else {}
@@ -335,6 +366,7 @@ def process_job(job_id: str) -> None:
                     "evaluation_mode": "validation_only",
                     "note": "Simulation marker is ready but no evaluate_job.py/.sh hook was found; archive validation metadata returned.",
                     "manifest": job.get("manifest"),
+                    "task_config": job.get("task_config"),
                     "archive_stats": job.get("archive_stats"),
                     "completed_at": now_iso(),
                 }
@@ -388,7 +420,7 @@ class Handler(SimpleHTTPRequestHandler):
     def end_headers(self) -> None:
         self.send_header("Access-Control-Allow-Origin", "*")
         self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
-        self.send_header("Access-Control-Allow-Headers", "Content-Type, X-File-Name, X-Callback-Url, X-Submitter, X-Job-Id, X-Upload-Token, Authorization")
+        self.send_header("Access-Control-Allow-Headers", "Content-Type, X-File-Name, X-Callback-Url, X-Submitter, X-Job-Id, X-Upload-Token, X-Task-Config, Authorization")
         super().end_headers()
 
     def do_OPTIONS(self) -> None:
@@ -477,6 +509,9 @@ class Handler(SimpleHTTPRequestHandler):
         filename = safe_filename(self.headers.get("X-File-Name") or (qs.get("filename") or ["upload.zip"])[0])
         callback_url = self.headers.get("X-Callback-Url") or (qs.get("callback_url") or [""])[0]
         submitter = self.headers.get("X-Submitter") or (qs.get("submitter") or [""])[0]
+        header_task_config, task_config_error = parse_task_config(
+            self.headers.get("X-Task-Config") or (qs.get("task_config") or [""])[0]
+        )
 
         with upload_lock:
             used = storage_used_bytes()
@@ -512,6 +547,12 @@ class Handler(SimpleHTTPRequestHandler):
             return
 
         manifest, errors, stats = validate_archive(archive_path)
+        if task_config_error:
+            errors.append(task_config_error)
+        task_config = header_task_config or manifest_task_config(manifest)
+        task_config_path = job_dir / "task_config.json"
+        if task_config:
+            write_json(task_config_path, task_config)
         created = now_iso()
         job = {
             "job_id": job_id,
@@ -527,6 +568,8 @@ class Handler(SimpleHTTPRequestHandler):
             "archive_bytes": length,
             "sha256": h.hexdigest(),
             "manifest": manifest,
+            "task_config": task_config,
+            "task_config_path": str(task_config_path) if task_config else "",
             "archive_stats": stats,
             "validation_errors": errors,
             "storage_root": str(STORAGE_ROOT),
@@ -541,7 +584,7 @@ def upload_spec() -> Dict[str, Any]:
         "endpoint": "POST /api/evaluate/upload",
         "body": "raw binary archive (.zip/.tar.gz/.tgz/.tar) or manifest .json for dry-run validation",
         "required_headers": ["X-File-Name"],
-        "optional_headers": ["X-Job-Id", "X-Callback-Url", "X-Submitter", "X-Upload-Token", "Authorization: Bearer <token>"],
+        "optional_headers": ["X-Job-Id", "X-Callback-Url", "X-Submitter", "X-Upload-Token", "X-Task-Config", "Authorization: Bearer <token>"],
         "limits": storage_info(),
         "manifest_root_file": "manifest.json",
         "manifest_schema": {
@@ -557,7 +600,15 @@ def upload_spec() -> Dict[str, Any]:
                 "labels": "labels/ or annotations/ (optional)",
             },
             "callback_url": "optional HTTPS URL; result JSON will be POSTed here",
+            "task_config": {
+                "task_type": "adversarial_evaluation",
+                "model": "yolov5s | avod | bevfusion",
+                "attack": "pgd | fgsm | cw | deepfool",
+                "epsilon": "number",
+                "dataset_subset": "small50 | val_all | mini"
+            },
         },
+        "task_config_rule": "Dashboard sends the unified adversarial settings in X-Task-Config and the gateway writes task_config.json next to job.json for evaluate_job.py/.sh.",
         "status_rule": "If <fixed-storage-root>/runtime/SIM_READY or DRIVEROBUST_SIM_READY=1 exists, queued jobs are evaluated; otherwise accepted jobs remain queued.",
         "runner_rule": "Place evaluate_job.py/.sh in the fixed <fixed-storage-root>/runtime/ or pages/runtime/, or set DRIVEROBUST_EVAL_RUNNER.",
         "result_endpoints": ["GET /api/tasks/<job_id>", "GET /api/results/<job_id>"],

@@ -1725,16 +1725,16 @@
         <div style="display:flex; justify-content:space-between; gap:12px; align-items:flex-start; flex-wrap:wrap;">
           <div>
             <div style="font-family:'Space Mono', monospace; font-size:14px; color:var(--accent); font-weight:800;">远端数据上传 / 评估主机队列桥梁</div>
-            <div style="font-size:12px; color:var(--text-muted); margin-top:4px; line-height:1.6;">这里的“本机”指<strong style="color:var(--accent)">评估主机/你的主机</strong>，不是打开网页用户自己的电脑。上传包由评估主机网关接收，固定写入 <code>/dev/shm/driverobust_bridge</code>，单包与总桥接区默认均不超过 <code>500MB</code>。GitHub Pages 访问时请填写评估主机可访问的 HTTPS 地址；若只有 HTTP/LAN 地址，建议直接打开评估主机网关提供的 <code>http://评估主机IP:8765/dashboard.html</code>，这样页面会自动使用当前评估主机地址并避免 HTTPS 混合内容拦截。</div>
+            <div style="font-size:12px; color:var(--text-muted); margin-top:4px; line-height:1.6;">这里的“本机”指<strong style="color:var(--accent)">评估主机/你的主机</strong>，不是打开网页用户自己的电脑。上传包由评估主机网关接收，固定写入 <code>/dev/shm/driverobust_bridge</code>，单包与总桥接区默认均不超过 <code>500MB</code>。GitHub Pages 访问时默认使用你的评估主机 IP：<code>http://10.203.170.203:8765</code>；若浏览器因 HTTPS 混合内容拦截 HTTP 上传，请直接打开评估主机网关提供的 <code>http://10.203.170.203:8765/dashboard.html</code>。上传时会自动携带上方“模型/攻击算法/epsilon/数据集子集”作为同一份对抗测试任务配置。</div>
           </div>
           <span id="gateway-status-pill" style="font-size:11px; border:1px solid rgba(247,179,71,0.45); color:var(--yellow); padding:4px 8px; font-family:'Space Mono', monospace;">QUEUE UNKNOWN</span>
         </div>
         <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
           <label style="display:flex; flex-direction:column; gap:6px; font-size:12px; color:var(--text-muted);">评估主机网关上传接口
-            <input id="gateway-endpoint" data-default-path="/api/evaluate/upload" placeholder="https://你的评估主机域名/api/evaluate/upload 或 http://评估主机IP:8765/api/evaluate/upload" style="background:#18202b; border:1px solid rgba(255,255,255,0.1); color:var(--text-primary); padding:8px; font-family:inherit;">
+            <input id="gateway-endpoint" data-default-path="/api/evaluate/upload" placeholder="http://10.203.170.203:8765/api/evaluate/upload" style="background:#18202b; border:1px solid rgba(255,255,255,0.1); color:var(--text-primary); padding:8px; font-family:inherit;">
           </label>
           <label style="display:flex; flex-direction:column; gap:6px; font-size:12px; color:var(--text-muted);">状态接口
-            <input id="gateway-health" data-default-path="/api/health" placeholder="https://你的评估主机域名/api/health 或 http://评估主机IP:8765/api/health" style="background:#18202b; border:1px solid rgba(255,255,255,0.1); color:var(--text-primary); padding:8px; font-family:inherit;">
+            <input id="gateway-health" data-default-path="/api/health" placeholder="http://10.203.170.203:8765/api/health" style="background:#18202b; border:1px solid rgba(255,255,255,0.1); color:var(--text-primary); padding:8px; font-family:inherit;">
           </label>
           <label style="display:flex; flex-direction:column; gap:6px; font-size:12px; color:var(--text-muted);">Job ID（可空）
             <input id="gateway-job-id" placeholder="remote-task-0001" style="background:#18202b; border:1px solid rgba(255,255,255,0.1); color:var(--text-primary); padding:8px; font-family:inherit;">
@@ -1752,6 +1752,7 @@
             <input id="gateway-file" type="file" accept=".zip,.tar,.gz,.tgz,.json,application/zip,application/gzip,application/json" style="background:#18202b; border:1px solid rgba(255,255,255,0.1); color:var(--text-primary); padding:8px; font-family:inherit;">
           </label>
         </div>
+        <div style="font-size:12px; color:var(--text-muted); line-height:1.6; border-left:3px solid var(--accent); padding-left:10px;">功能对齐规则：上方选择的 <code>model / attack / epsilon / dataset_subset</code> 会同时用于“启动评估主机内置任务”和“上传包加入队列”。上传时浏览器会发送 <code>X-Task-Config</code>，评估主机保存为 <code>task_config.json</code>，评估钩子可直接读取。</div>
         <details style="font-size:12px; color:var(--text-muted); line-height:1.7;">
           <summary style="cursor:pointer; color:var(--accent); font-weight:800; font-family:'Space Mono', monospace;">上传规范 / manifest.json</summary>
           <pre style="margin-top:8px; white-space:pre-wrap; background:#0a0f18; border:1px solid rgba(255,255,255,0.08); padding:10px; color:#d7ffe9; font-size:11px;">{
@@ -1765,6 +1766,13 @@
     "lidar": "inputs/lidar/ or velodyne/",
     "calib": "calib/",
     "labels": "labels/ or annotations/"
+  },
+  "task_config": {
+    "task_type": "adversarial_evaluation",
+    "model": "bevfusion",
+    "attack": "pgd",
+    "epsilon": 0.015,
+    "dataset_subset": "small50"
   },
   "callback_url": "https://server.example.com/api/results"
 }</pre>
@@ -2167,6 +2175,29 @@
     modal.style.display = 'none';
   };
 
+  const EVALUATION_HOST_BASE = 'http://10.203.170.203:8765';
+
+  function sameOriginGatewayAvailable() {
+    return (location.protocol === 'http:' || location.protocol === 'https:') && !isHostedOnGithubPages();
+  }
+
+  function isLoopbackGatewayUrl(value) {
+    return /^https?:\/\/(127\.0\.0\.1|localhost)(:|\/|$)/i.test(value || '');
+  }
+
+  function getUnifiedTaskConfig() {
+    return {
+      schema_version: 'driverobust-task-config-v1',
+      task_type: 'adversarial_evaluation',
+      model: document.getElementById('task-model-select')?.value || 'bevfusion',
+      attack: document.getElementById('task-attack-select')?.value || 'pgd',
+      epsilon: Number(document.getElementById('task-eps')?.value || 0.015),
+      dataset_subset: document.getElementById('task-dataset-select')?.value || 'small50',
+      source: 'dashboard-unified-panel',
+      created_at: new Date().toISOString()
+    };
+  }
+
   function gatewayLog(message, obj) {
     const el = document.getElementById('gateway-log');
     if (!el) return;
@@ -2205,16 +2236,24 @@
     const endpoint = document.getElementById('gateway-endpoint');
     const health = document.getElementById('gateway-health');
     if (!endpoint || !health) return;
-    const savedEndpoint = localStorage.getItem('driverobust_gateway_endpoint') || '';
-    const savedHealth = localStorage.getItem('driverobust_gateway_health') || '';
+    let savedEndpoint = localStorage.getItem('driverobust_gateway_endpoint') || '';
+    let savedHealth = localStorage.getItem('driverobust_gateway_health') || '';
+    if (isHostedOnGithubPages() && (isLoopbackGatewayUrl(savedEndpoint) || isLoopbackGatewayUrl(savedHealth))) {
+      savedEndpoint = '';
+      savedHealth = '';
+      localStorage.removeItem('driverobust_gateway_endpoint');
+      localStorage.removeItem('driverobust_gateway_health');
+    }
     if (savedEndpoint) endpoint.value = savedEndpoint;
     if (savedHealth) health.value = savedHealth;
-    if (!endpoint.value && !health.value && !isHostedOnGithubPages()) {
+    if (!endpoint.value && !health.value && sameOriginGatewayAvailable()) {
       endpoint.value = `${location.origin}/api/evaluate/upload`;
       health.value = `${location.origin}/api/health`;
     }
-    if (!endpoint.value && !health.value && isHostedOnGithubPages()) {
-      gatewayLog('当前页面来自 GitHub Pages。请把网关地址填写为“评估主机/你的主机”的可访问 HTTPS 地址；不要使用 127.0.0.1，因为那会指向浏览器用户自己的电脑。若只有 HTTP/LAN 地址，请打开 http://评估主机IP:8765/dashboard.html。');
+    if (!endpoint.value) endpoint.value = `${EVALUATION_HOST_BASE}/api/evaluate/upload`;
+    if (!health.value) health.value = `${EVALUATION_HOST_BASE}/api/health`;
+    if (isHostedOnGithubPages()) {
+      gatewayLog('当前页面来自 GitHub Pages。已默认填入你的评估主机 IP：10.203.170.203。若浏览器拦截 HTTPS 页面访问 HTTP 接口，请打开 http://10.203.170.203:8765/dashboard.html。');
     }
   }
 
@@ -2222,7 +2261,7 @@
     const url = gatewayHealthUrl();
     if (!url) {
       setGatewayPill('HOST URL REQUIRED', 'queue');
-      gatewayLog('请先填写评估主机的状态接口地址。GitHub Pages 下建议使用 HTTPS 反代地址；HTTP/LAN 地址请直接打开 http://评估主机IP:8765/dashboard.html。');
+      gatewayLog('请先填写评估主机的状态接口地址；默认可用 http://10.203.170.203:8765/api/health。若在 GitHub Pages 中被浏览器拦截，请打开 http://10.203.170.203:8765/dashboard.html。');
       return null;
     }
     try {
@@ -2268,8 +2307,10 @@
     if (callback) headers['X-Callback-Url'] = callback;
     if (submitter) headers['X-Submitter'] = submitter;
     if (token) headers['X-Upload-Token'] = token;
+    const taskConfig = getUnifiedTaskConfig();
+    headers['X-Task-Config'] = encodeURIComponent(JSON.stringify(taskConfig));
 
-    gatewayLog(`开始上传 ${file.name} (${file.size} bytes)，超过 500MB 会被评估主机桥梁拒绝。`);
+    gatewayLog(`开始上传 ${file.name} (${file.size} bytes)，超过 500MB 会被评估主机桥梁拒绝。`, {task_config: taskConfig});
     try {
       const res = await fetch(url.toString(), {method: 'POST', headers, body: file});
       const text = await res.text();
@@ -2295,10 +2336,11 @@
     document.getElementById('task-setup-view').style.display = 'none';
     document.getElementById('task-console-view').style.display = 'flex';
 
-    const model = document.getElementById('task-model-select').value;
-    const attack = document.getElementById('task-attack-select').value;
-    const eps = document.getElementById('task-eps').value;
-    const subset = document.getElementById('task-dataset-select').value;
+    const taskConfig = getUnifiedTaskConfig();
+    const model = taskConfig.model;
+    const attack = taskConfig.attack;
+    const eps = taskConfig.epsilon;
+    const subset = taskConfig.dataset_subset;
 
     const consoleDiv = document.getElementById('console-output');
     consoleDiv.textContent = '';

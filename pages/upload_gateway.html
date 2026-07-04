@@ -50,13 +50,13 @@
   <div class="grid">
     <section class="card">
       <h2>// 1. 评估主机接入地址与上传表单</h2>
-      <p class="hint">页面可以直接由评估主机网关提供：<code>http://评估主机IP:8765/upload_gateway.html</code>。如果从 GitHub Pages 打开，上传接口应使用评估主机的 HTTPS 反代地址；浏览器通常会拦截 HTTPS 页面向普通 HTTP/LAN 地址上传。GitHub Pages 静态页面本身不能保存上传文件，必须启动本文件夹内的评估主机网关服务。</p>
+      <p class="hint">页面可以直接由评估主机网关提供：<code>http://10.203.170.203:8765/upload_gateway.html</code>。如果从 GitHub Pages 打开，默认评估主机 IP 为 <code>10.203.170.203</code>；浏览器可能会拦截 HTTPS 页面向普通 HTTP/LAN 地址上传，此时请打开评估主机提供的页面。需要和对抗测试参数完全对齐时，请优先使用 <code>dashboard.html</code> 里的“对抗测试 / 上传评估”统一面板。</p>
       <div class="form-grid">
         <label>评估主机网关地址
-          <input id="endpoint" placeholder="https://你的评估主机域名/api/evaluate/upload 或 http://评估主机IP:8765/api/evaluate/upload">
+          <input id="endpoint" placeholder="http://10.203.170.203:8765/api/evaluate/upload">
         </label>
         <label>状态接口
-          <input id="health-endpoint" placeholder="https://你的评估主机域名/api/health 或 http://评估主机IP:8765/api/health">
+          <input id="health-endpoint" placeholder="http://10.203.170.203:8765/api/health">
         </label>
         <label>任务 ID（可空；空则自动生成）
           <input id="job-id" placeholder="job-20260704-demo">
@@ -178,18 +178,28 @@ python3 runtime/evaluate_job.py \
 
 <script>
 const $ = id => document.getElementById(id);
+const EVALUATION_HOST_BASE = 'http://10.203.170.203:8765';
 function isHostedOnGithubPages() { return location.hostname.endsWith('github.io'); }
+function isLoopbackGatewayUrl(value) { return /^https?:\/\/(127\.0\.0\.1|localhost)(:|\/|$)/i.test(value || ''); }
 function configureGatewayDefaults() {
   const endpoint = $('endpoint');
   const health = $('health-endpoint');
-  const savedEndpoint = localStorage.getItem('driverobust_gateway_endpoint') || '';
-  const savedHealth = localStorage.getItem('driverobust_gateway_health') || '';
+  let savedEndpoint = localStorage.getItem('driverobust_gateway_endpoint') || '';
+  let savedHealth = localStorage.getItem('driverobust_gateway_health') || '';
+  if (isHostedOnGithubPages() && (isLoopbackGatewayUrl(savedEndpoint) || isLoopbackGatewayUrl(savedHealth))) {
+    savedEndpoint = '';
+    savedHealth = '';
+    localStorage.removeItem('driverobust_gateway_endpoint');
+    localStorage.removeItem('driverobust_gateway_health');
+  }
   if (savedEndpoint) endpoint.value = savedEndpoint;
   if (savedHealth) health.value = savedHealth;
   if (!endpoint.value && !health.value && !isHostedOnGithubPages()) {
     endpoint.value = `${location.origin}/api/evaluate/upload`;
     health.value = `${location.origin}/api/health`;
   }
+  if (!endpoint.value) endpoint.value = `${EVALUATION_HOST_BASE}/api/evaluate/upload`;
+  if (!health.value) health.value = `${EVALUATION_HOST_BASE}/api/health`;
 }
 function log(message, obj) {
   const line = `[${new Date().toLocaleTimeString()}] ${message}` + (obj ? `\n${JSON.stringify(obj, null, 2)}` : '');
@@ -201,7 +211,7 @@ async function checkHealth() {
   if (!url) {
     $('stat-service').textContent = 'HOST?';
     $('stat-service').className = 'queue';
-    log('请先填写评估主机状态接口。GitHub 页面里的 127.0.0.1 指向浏览器用户自己的电脑，不是你的评估主机；若只有 HTTP/LAN 地址，请打开 http://评估主机IP:8765/upload_gateway.html。');
+    log('请先填写评估主机状态接口；默认可用 http://10.203.170.203:8765/api/health。若 GitHub Pages 被浏览器拦截 HTTP 上传，请打开 http://10.203.170.203:8765/upload_gateway.html。');
     return;
   }
   try {
@@ -239,6 +249,16 @@ async function uploadPackage() {
   if ($('submitter').value.trim()) headers['X-Submitter'] = $('submitter').value.trim();
   if ($('callback-url').value.trim()) headers['X-Callback-Url'] = $('callback-url').value.trim();
   if ($('upload-token').value.trim()) headers['X-Upload-Token'] = $('upload-token').value.trim();
+  headers['X-Task-Config'] = encodeURIComponent(JSON.stringify({
+    schema_version: 'driverobust-task-config-v1',
+    task_type: 'adversarial_evaluation',
+    model: 'bevfusion',
+    attack: 'pgd',
+    epsilon: 0.015,
+    dataset_subset: 'small50',
+    source: 'upload-gateway-standalone',
+    created_at: new Date().toISOString()
+  }));
   log(`开始上传 ${file.name} (${file.size} bytes)`);
   try {
     const res = await fetch(url.toString(), {method:'POST', headers, body:file});
