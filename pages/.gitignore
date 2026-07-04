@@ -1,0 +1,5 @@
+__pycache__/
+runtime/
+incoming_uploads/
+eval_queue/
+eval_results/

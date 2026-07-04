@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>本机上传评估网关 · DriveRobust</title>
+<meta name="description" content="DriveRobust 本机评估上传规范、任务排队与结果回传接口">
+<style>
+  :root{
+    --bg:#070a0f; --panel:#101720; --panel2:#151e29; --line:rgba(124,255,186,.18);
+    --text:#f4f7fb; --muted:#9ca8b8; --accent:#7cffba; --cyan:#38d5ff;
+    --yellow:#f7b347; --red:#ff6b6b; --green:#38ef7d; --mono:"SFMono-Regular",Consolas,"Liberation Mono",Menlo,monospace;
+    --sans:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans SC","Microsoft YaHei",Arial,sans-serif;
+  }
+  *{box-sizing:border-box} body{margin:0;background:radial-gradient(circle at top left,rgba(124,255,186,.09),transparent 32%),var(--bg);color:var(--text);font-family:var(--sans);}
+  a{color:var(--accent);text-decoration:none} code,pre,input,select,button{font-family:var(--mono)}
+  .shell{max-width:1180px;margin:0 auto;padding:28px 18px 64px}.top{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:20px}.brand{display:flex;gap:12px;align-items:center}.logo{width:38px;height:38px;border-radius:6px;background:var(--accent);color:#07110c;font-weight:900;display:grid;place-items:center}.eyebrow{font-family:var(--mono);font-size:12px;color:var(--accent);letter-spacing:.08em;text-transform:uppercase}.title{font-size:28px;font-weight:900;margin:4px 0}.subtitle{color:var(--muted);font-size:14px;line-height:1.7}.nav{display:flex;gap:10px;flex-wrap:wrap}.btn{border:1px solid var(--line);background:rgba(255,255,255,.04);color:var(--text);padding:10px 14px;border-radius:4px;cursor:pointer;font-weight:800;font-size:12px}.btn.primary{background:var(--accent);color:#07110c;border-color:var(--accent)}.btn.warn{border-color:rgba(247,179,71,.5);color:var(--yellow)}
+  .grid{display:grid;grid-template-columns:1.05fr .95fr;gap:16px}.card{background:linear-gradient(180deg,rgba(255,255,255,.045),rgba(255,255,255,.018));border:1px solid var(--line);box-shadow:0 18px 60px rgba(0,0,0,.28);padding:18px;border-radius:8px}.card h2{font-size:16px;margin:0 0 12px;font-family:var(--mono);letter-spacing:.03em}.card h3{font-size:14px;margin:18px 0 10px;color:var(--accent)}.status-row{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin:16px 0}.stat{background:#0c121a;border:1px solid rgba(255,255,255,.08);padding:12px;border-radius:6px}.stat b{display:block;font-size:20px;color:var(--accent);margin-bottom:4px}.stat span{font-size:12px;color:var(--muted)}
+  label{display:flex;flex-direction:column;gap:7px;font-size:12px;color:var(--muted);font-weight:700}.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}input,select{width:100%;background:#0b1119;border:1px solid rgba(255,255,255,.12);color:var(--text);padding:10px;border-radius:4px}input[type=file]{padding:8px}.hint{font-size:12px;color:var(--muted);line-height:1.6}.pill{display:inline-flex;align-items:center;gap:6px;padding:3px 8px;border:1px solid var(--line);border-radius:999px;font-family:var(--mono);font-size:11px;color:var(--accent);background:rgba(124,255,186,.07)}.pill.queue{color:var(--yellow);border-color:rgba(247,179,71,.4);background:rgba(247,179,71,.08)}.pill.err{color:var(--red);border-color:rgba(255,107,107,.4);background:rgba(255,107,107,.08)}
+  pre{background:#080d14;border:1px solid rgba(255,255,255,.09);padding:14px;border-radius:6px;overflow:auto;line-height:1.55;color:#d7ffe9;font-size:12px}table{width:100%;border-collapse:collapse;font-size:12px}td,th{border-bottom:1px solid rgba(255,255,255,.08);padding:9px;text-align:left;vertical-align:top}th{color:var(--accent);font-family:var(--mono)}.mono{font-family:var(--mono)}.log{height:280px;overflow:auto;white-space:pre-wrap;background:#060a10;border:1px solid rgba(255,255,255,.1);padding:12px;border-radius:6px;font:12px/1.55 var(--mono);color:#d7ffe9}.spec-list{margin:0;padding-left:18px;color:var(--muted);line-height:1.75}.spec-list strong{color:var(--text)}.ok{color:var(--green)}.bad{color:var(--red)}.queue{color:var(--yellow)}
+  @media(max-width:900px){.grid,.form-grid,.status-row{grid-template-columns:1fr}.top{align-items:flex-start;flex-direction:column}}
+</style>
+</head>
+<body>
+<div class="shell">
+  <header class="top">
+    <div class="brand">
+      <div class="logo">DR</div>
+      <div>
+        <div class="eyebrow">DriveRobust Local Evaluation Gateway</div>
+        <div class="title">本机上传评估网关</div>
+        <div class="subtitle">允许远端服务器/协作者将评估包上传到本机；仿真环境就绪则执行评估并回传结果，否则任务进入排队状态。</div>
+      </div>
+    </div>
+    <nav class="nav">
+      <a class="btn" href="dashboard.html">← 数据看板</a>
+      <a class="btn" href="replay.html">3D 回放</a>
+      <a class="btn" href="bevfusion.html">BEVFusion</a>
+    </nav>
+  </header>
+
+  <section class="status-row" aria-label="网关状态">
+    <div class="stat"><b id="stat-service">--</b><span>服务连接</span></div>
+    <div class="stat"><b id="stat-ready">--</b><span>仿真环境</span></div>
+    <div class="stat"><b id="stat-queue">--</b><span>队列深度</span></div>
+    <div class="stat"><b id="stat-runner">--</b><span>评估钩子</span></div>
+  </section>
+
+  <div class="grid">
+    <section class="card">
+      <h2>// 1. 本机接入地址与上传表单</h2>
+      <p class="hint">页面可以在本机直接访问；如果远端服务器要上传到本机，请将本机 <code>8765</code> 端口通过局域网、VPN、反向代理或安全隧道暴露给对方。GitHub Pages 静态页面本身不能保存上传文件，必须启动本文件夹内的本机网关服务。</p>
+      <div class="form-grid">
+        <label>本机网关地址
+          <input id="endpoint" value="http://127.0.0.1:8765/api/evaluate/upload">
+        </label>
+        <label>状态接口
+          <input id="health-endpoint" value="http://127.0.0.1:8765/api/health">
+        </label>
+        <label>任务 ID（可空；空则自动生成）
+          <input id="job-id" placeholder="job-20260704-demo">
+        </label>
+        <label>提交方 / 服务器标识
+          <input id="submitter" placeholder="remote-server-a">
+        </label>
+        <label>结果回传 Callback URL（可空）
+          <input id="callback-url" placeholder="https://server.example.com/api/driverobust/results">
+        </label>
+        <label>上传令牌（如本机设置 DRIVEROBUST_UPLOAD_TOKEN）
+          <input id="upload-token" type="password" placeholder="optional">
+        </label>
+        <label style="grid-column:1/-1">评估包文件（.zip / .tar.gz / .tgz / .tar）
+          <input id="upload-file" type="file" accept=".zip,.tar,.gz,.tgz,.json,application/zip,application/gzip,application/json">
+        </label>
+      </div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:14px">
+        <button class="btn" onclick="checkHealth()">检测本机状态</button>
+        <button class="btn primary" onclick="uploadPackage()">上传并提交评估</button>
+        <button class="btn warn" onclick="loadTasks()">刷新任务列表</button>
+      </div>
+      <h3>交互日志</h3>
+      <div id="log" class="log">等待操作...</div>
+    </section>
+
+    <section class="card">
+      <h2>// 2. 本机启动与队列规则</h2>
+      <p class="hint">以下命令均只在 <code>pages/</code> 文件夹内写入运行时数据。</p>
+      <pre>cd /home/matrix/seoul_robotics_style/evaluation_v2/pages
+python3 local_eval_server.py --host 0.0.0.0 --port 8765</pre>
+      <table>
+        <tr><th>状态</th><th>判定方式</th><th>行为</th></tr>
+        <tr><td><span class="pill queue">QUEUEING</span></td><td>不存在 <code>runtime/SIM_READY</code> 且未设置 <code>DRIVEROBUST_SIM_READY=1</code></td><td>合法上传包被保存到 <code>eval_queue/</code>，接口返回 <code>202 queued</code> 与排队说明。</td></tr>
+        <tr><td><span class="pill">READY</span></td><td>创建 <code>runtime/SIM_READY</code> 或设置环境变量</td><td>后台 worker 取队列任务，调用 <code>runtime/evaluate_job.py</code> 或 <code>runtime/evaluate_job.sh</code>。</td></tr>
+        <tr><td><span class="pill">RETURN</span></td><td>任务完成且 manifest 或请求头提供 callback</td><td>本机会将结果 JSON <code>POST</code> 到远端 <code>callback_url</code>，同时保存在 <code>eval_results/</code>。</td></tr>
+      </table>
+      <h3>标记仿真环境就绪 / 暂停接单</h3>
+      <pre># 就绪：开始消费队列
+mkdir -p runtime && touch runtime/SIM_READY
+
+# 暂停：只接收上传并排队
+rm -f runtime/SIM_READY</pre>
+    </section>
+  </div>
+
+  <section class="card" style="margin-top:16px">
+    <h2>// 3. 上传数据包规范（必须满足）</h2>
+    <div class="grid">
+      <div>
+        <ul class="spec-list">
+          <li><strong>压缩格式：</strong><code>.zip</code>、<code>.tar.gz</code>、<code>.tgz</code> 或 <code>.tar</code>；建议单包不超过本机配置上限（默认 2GB）。</li>
+          <li><strong>根目录必须包含：</strong><code>manifest.json</code>，其 <code>spec_version</code> 必须为 <code>driverobust-eval-upload-v1</code>。</li>
+          <li><strong>路径安全：</strong>压缩包内不得包含绝对路径、<code>..</code> 回退路径或可执行自启动脚本。</li>
+          <li><strong>传感器数据：</strong>相机图片建议放在 <code>inputs/images/</code> 或 <code>samples/CAM_*/</code>；点云放在 <code>inputs/lidar/</code> 或 <code>velodyne/</code>；标定放在 <code>calib/</code>。</li>
+          <li><strong>标签/预测：</strong>真值、预测、扰动配置可放在 <code>labels/</code>、<code>annotations/</code>、<code>predictions/</code> 或 <code>perturbations/</code>。</li>
+          <li><strong>结果回传：</strong>优先使用请求头 <code>X-Callback-Url</code>；也可在 manifest 中设置 <code>callback_url</code>。</li>
+        </ul>
+      </div>
+      <div>
+<pre>{
+  "spec_version": "driverobust-eval-upload-v1",
+  "task_id": "remote-task-0001",
+  "dataset_type": "kitti",
+  "sensor_suite": ["camera", "lidar"],
+  "frame_count": 50,
+  "files": {
+    "images": "inputs/images/",
+    "lidar": "inputs/lidar/",
+    "calib": "calib/",
+    "labels": "labels/",
+    "predictions": "predictions/"
+  },
+  "evaluation": {
+    "models": ["yolov5s", "avod", "bevfusion"],
+    "metrics": ["recall", "precision", "RDI", "MLD", "CMIF", "DCS", "AJER", "RGI"]
+  },
+  "callback_url": "https://server.example.com/api/results"
+}</pre>
+      </div>
+    </div>
+    <h3>远端服务器上传示例</h3>
+<pre>curl -X POST 'http://LOCAL_HOST:8765/api/evaluate/upload?job_id=remote-task-0001' \
+  -H 'X-File-Name: driverobust_eval_package.zip' \
+  -H 'X-Submitter: remote-server-a' \
+  -H 'X-Callback-Url: https://server.example.com/api/driverobust/results' \
+  --data-binary @driverobust_eval_package.zip</pre>
+  </section>
+
+  <section class="card" style="margin-top:16px">
+    <h2>// 4. 评估执行钩子与结果格式</h2>
+    <p class="hint">网关只负责接收、校验、排队、调度与回传。真正仿真评估逻辑请放在本文件夹的 <code>runtime/evaluate_job.py</code> 或 <code>runtime/evaluate_job.sh</code> 中；仿真环境未准备好时不要创建 <code>runtime/SIM_READY</code>。</p>
+<pre># runtime/evaluate_job.py 会收到：
+python3 runtime/evaluate_job.py \
+  --job-dir pages/eval_queue/&lt;job_id&gt; \
+  --archive pages/eval_queue/&lt;job_id&gt;/package.zip \
+  --result pages/eval_results/&lt;job_id&gt;.json</pre>
+    <p class="hint">结果 JSON 建议至少包含：</p>
+<pre>{
+  "job_id": "remote-task-0001",
+  "status": "completed",
+  "metrics": {"recall": 0.718, "precision": 0.64, "RDI": 0.285},
+  "artifacts": {"report": "eval_results/remote-task-0001_report.pdf"},
+  "completed_at": "2026-07-04T12:00:00Z"
+}</pre>
+  </section>
+
+  <section class="card" style="margin-top:16px">
+    <h2>// 5. 最近任务</h2>
+    <div id="tasks" class="hint">尚未加载。</div>
+  </section>
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+function log(message, obj) {
+  const line = `[${new Date().toLocaleTimeString()}] ${message}` + (obj ? `\n${JSON.stringify(obj, null, 2)}` : '');
+  $('log').textContent = line + '\n\n' + $('log').textContent;
+}
+function healthUrl() { return $('health-endpoint').value.trim() || 'http://127.0.0.1:8765/api/health'; }
+async function checkHealth() {
+  try {
+    const res = await fetch(healthUrl(), {cache:'no-store'});
+    const data = await res.json();
+    $('stat-service').textContent = res.ok ? 'ONLINE' : 'ERROR';
+    $('stat-service').className = res.ok ? 'ok' : 'bad';
+    $('stat-ready').textContent = data.simulation_ready ? 'READY' : 'QUEUE';
+    $('stat-ready').className = data.simulation_ready ? 'ok' : 'queue';
+    $('stat-queue').textContent = data.queue_depth ?? '--';
+    $('stat-runner').textContent = data.runner ? 'HOOK' : 'VALID';
+    log('本机状态检测完成', data);
+  } catch (err) {
+    $('stat-service').textContent = 'OFFLINE';
+    $('stat-service').className = 'bad';
+    $('stat-ready').textContent = '--';
+    $('stat-queue').textContent = '--';
+    $('stat-runner').textContent = '--';
+    log('无法连接本机网关：请先启动 local_eval_server.py', {error: String(err)});
+  }
+}
+async function uploadPackage() {
+  const file = $('upload-file').files[0];
+  if (!file) { log('请选择评估包文件'); return; }
+  const endpoint = $('endpoint').value.trim();
+  const jobId = $('job-id').value.trim();
+  const url = new URL(endpoint);
+  if (jobId) url.searchParams.set('job_id', jobId);
+  const headers = {'X-File-Name': file.name};
+  if ($('submitter').value.trim()) headers['X-Submitter'] = $('submitter').value.trim();
+  if ($('callback-url').value.trim()) headers['X-Callback-Url'] = $('callback-url').value.trim();
+  if ($('upload-token').value.trim()) headers['X-Upload-Token'] = $('upload-token').value.trim();
+  log(`开始上传 ${file.name} (${file.size} bytes)`);
+  try {
+    const res = await fetch(url.toString(), {method:'POST', headers, body:file});
+    const text = await res.text();
+    let data;
+    try { data = JSON.parse(text); } catch { data = {raw:text}; }
+    log(res.ok ? '上传已接收' : '上传被拒绝', data);
+    await checkHealth();
+    await loadTasks();
+  } catch (err) {
+    log('上传失败', {error:String(err)});
+  }
+}
+async function loadTasks() {
+  try {
+    const api = healthUrl().replace(/\/api\/health\/?$/, '/api/tasks');
+    const res = await fetch(api, {cache:'no-store'});
+    const data = await res.json();
+    const jobs = data.jobs || [];
+    if (!jobs.length) { $('tasks').textContent = '暂无任务。'; return; }
+    $('tasks').innerHTML = `<table><thead><tr><th>Job</th><th>Status</th><th>Queue Note</th><th>Result</th></tr></thead><tbody>` + jobs.slice(0, 12).map(j => {
+      const cls = j.status === 'queued' ? 'queue' : (j.status === 'failed' || j.status === 'rejected' ? 'bad' : 'ok');
+      return `<tr><td class="mono">${j.job_id}</td><td class="${cls}">${j.status}</td><td>${j.queue_note || j.reason || ''}</td><td class="mono">${j.result_path || ''}</td></tr>`;
+    }).join('') + `</tbody></table>`;
+    log('任务列表已刷新', {count: jobs.length});
+  } catch (err) {
+    log('任务列表读取失败', {error:String(err)});
+  }
+}
+checkHealth();
+</script>
+</body>
+</html>
