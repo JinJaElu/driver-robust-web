@@ -2,11 +2,12 @@
 """
 DriveRobust local evaluation upload gateway.
 
-Run from this folder:
-  python3 local_eval_server.py --host 0.0.0.0 --port 8765
+Run from this folder and choose an isolated bridge storage area:
+  python3 local_eval_server.py --host 0.0.0.0 --port 8765 --storage-root /path/to/bridge_storage
 
-The server only writes below this pages/ directory:
-  runtime/, incoming_uploads/, eval_queue/, eval_results/
+The gateway serves the static pages from this pages/ folder, but uploaded data,
+queue metadata and results are written to --storage-root. By default both the
+single-upload limit and the total bridge storage quota are 500 MB.
 """
 from __future__ import annotations
 
@@ -22,7 +23,6 @@ import sys
 import tarfile
 import threading
 import time
-import urllib.error
 import urllib.parse
 import urllib.request
 import uuid
@@ -32,25 +32,98 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
 BASE_DIR = Path(__file__).resolve().parent
-RUNTIME_DIR = BASE_DIR / "runtime"
-UPLOAD_DIR = BASE_DIR / "incoming_uploads"
-QUEUE_DIR = BASE_DIR / "eval_queue"
-RESULT_DIR = BASE_DIR / "eval_results"
-READY_MARKER = RUNTIME_DIR / "SIM_READY"
 SPEC_VERSION = "driverobust-eval-upload-v1"
-MAX_UPLOAD_BYTES = int(os.environ.get("DRIVEROBUST_MAX_UPLOAD_BYTES", str(2 * 1024 * 1024 * 1024)))
+DEFAULT_LIMIT_BYTES = 500 * 1024 * 1024
+
+STORAGE_ROOT = Path(os.environ.get("DRIVEROBUST_STORAGE_ROOT", str(BASE_DIR / "bridge_storage"))).expanduser()
+MAX_UPLOAD_BYTES = int(os.environ.get("DRIVEROBUST_MAX_UPLOAD_BYTES", str(DEFAULT_LIMIT_BYTES)))
+STORAGE_LIMIT_BYTES = int(os.environ.get("DRIVEROBUST_STORAGE_LIMIT_BYTES", str(DEFAULT_LIMIT_BYTES)))
 WORKER_INTERVAL = float(os.environ.get("DRIVEROBUST_WORKER_INTERVAL", "3"))
 UPLOAD_TOKEN = os.environ.get("DRIVEROBUST_UPLOAD_TOKEN", "").strip()
 
+RUNTIME_DIR = STORAGE_ROOT / "runtime"
+UPLOAD_DIR = STORAGE_ROOT / "incoming_uploads"
+QUEUE_DIR = STORAGE_ROOT / "eval_queue"
+RESULT_DIR = STORAGE_ROOT / "eval_results"
+READY_MARKER = RUNTIME_DIR / "SIM_READY"
+
 SAFE_NAME = re.compile(r"[^A-Za-z0-9._@+=,-]+")
 JOB_ID_RE = re.compile(r"^[A-Za-z0-9._-]{1,80}$")
+upload_lock = threading.Lock()
+processing_lock = threading.Lock()
+stop_event = threading.Event()
 
-for d in (RUNTIME_DIR, UPLOAD_DIR, QUEUE_DIR, RESULT_DIR):
-    d.mkdir(parents=True, exist_ok=True)
+
+def configure_storage(root: Path, max_upload_mb: int, storage_limit_mb: int) -> None:
+    """Configure the isolated bridge storage area selected by the operator."""
+    global STORAGE_ROOT, RUNTIME_DIR, UPLOAD_DIR, QUEUE_DIR, RESULT_DIR, READY_MARKER
+    global MAX_UPLOAD_BYTES, STORAGE_LIMIT_BYTES
+
+    STORAGE_ROOT = root.expanduser().resolve()
+    MAX_UPLOAD_BYTES = max(1, int(max_upload_mb)) * 1024 * 1024
+    STORAGE_LIMIT_BYTES = max(1, int(storage_limit_mb)) * 1024 * 1024
+    # The bridge should never accept a single file larger than the total bridge quota.
+    MAX_UPLOAD_BYTES = min(MAX_UPLOAD_BYTES, STORAGE_LIMIT_BYTES)
+
+    RUNTIME_DIR = STORAGE_ROOT / "runtime"
+    UPLOAD_DIR = STORAGE_ROOT / "incoming_uploads"
+    QUEUE_DIR = STORAGE_ROOT / "eval_queue"
+    RESULT_DIR = STORAGE_ROOT / "eval_results"
+    READY_MARKER = RUNTIME_DIR / "SIM_READY"
+    for d in (RUNTIME_DIR, UPLOAD_DIR, QUEUE_DIR, RESULT_DIR):
+        d.mkdir(parents=True, exist_ok=True)
 
 
 def now_iso() -> str:
     return _dt.datetime.now(_dt.timezone.utc).isoformat()
+
+
+def human_bytes(n: int) -> str:
+    units = ["B", "KB", "MB", "GB", "TB"]
+    v = float(n)
+    for unit in units:
+        if v < 1024 or unit == units[-1]:
+            return f"{v:.1f} {unit}" if unit != "B" else f"{int(v)} B"
+        v /= 1024
+    return f"{n} B"
+
+
+def display_path(path: Path) -> str:
+    try:
+        return str(path.resolve().relative_to(BASE_DIR))
+    except Exception:
+        return str(path)
+
+
+def storage_used_bytes() -> int:
+    total = 0
+    if not STORAGE_ROOT.exists():
+        return 0
+    for root, dirs, files in os.walk(STORAGE_ROOT):
+        dirs[:] = [d for d in dirs if not Path(root, d).is_symlink()]
+        for name in files:
+            p = Path(root, name)
+            try:
+                if not p.is_symlink():
+                    total += p.stat().st_size
+            except OSError:
+                pass
+    return total
+
+
+def storage_info() -> Dict[str, Any]:
+    used = storage_used_bytes()
+    return {
+        "storage_root": str(STORAGE_ROOT),
+        "storage_limit_bytes": STORAGE_LIMIT_BYTES,
+        "storage_limit_human": human_bytes(STORAGE_LIMIT_BYTES),
+        "storage_used_bytes": used,
+        "storage_used_human": human_bytes(used),
+        "storage_free_bytes": max(0, STORAGE_LIMIT_BYTES - used),
+        "storage_free_human": human_bytes(max(0, STORAGE_LIMIT_BYTES - used)),
+        "max_upload_bytes": MAX_UPLOAD_BYTES,
+        "max_upload_human": human_bytes(MAX_UPLOAD_BYTES),
+    }
 
 
 def safe_filename(name: str) -> str:
@@ -74,6 +147,7 @@ def read_json(path: Path, default: Any = None) -> Any:
 
 
 def write_json(path: Path, data: Any) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
     tmp = path.with_suffix(path.suffix + ".tmp")
     tmp.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
     tmp.replace(path)
@@ -118,7 +192,7 @@ def validate_manifest_obj(obj: Dict[str, Any]) -> List[str]:
 
 
 def validate_archive(path: Path) -> Tuple[Optional[Dict[str, Any]], List[str], Dict[str, Any]]:
-    """Return manifest, errors, stats."""
+    """Return manifest, validation errors, archive stats."""
     kind = detect_archive(path)
     errors: List[str] = []
     stats: Dict[str, Any] = {"archive_type": kind, "member_count": 0, "manifest_found": False}
@@ -147,11 +221,7 @@ def validate_archive(path: Path) -> Tuple[Optional[Dict[str, Any]], List[str], D
                 unsafe = [m.name for m in members if not is_safe_archive_name(m.name)]
                 if unsafe:
                     errors.append(f"unsafe archive paths: {unsafe[:5]}")
-                found = None
-                for m in members:
-                    if m.name == "manifest.json":
-                        found = m
-                        break
+                found = next((m for m in members if m.name == "manifest.json"), None)
                 if found:
                     stats["manifest_found"] = True
                     f = tf.extractfile(found)
@@ -184,10 +254,21 @@ def simulation_ready() -> bool:
 
 
 def runner_path() -> Optional[Path]:
-    for rel in ("runtime/evaluate_job.py", "runtime/evaluate_job.sh", "evaluate_job.py", "evaluate_job.sh"):
-        p = BASE_DIR / rel
+    env_runner = os.environ.get("DRIVEROBUST_EVAL_RUNNER", "").strip()
+    candidates: List[Path] = []
+    if env_runner:
+        candidates.append(Path(env_runner).expanduser())
+    candidates.extend([
+        STORAGE_ROOT / "runtime" / "evaluate_job.py",
+        STORAGE_ROOT / "runtime" / "evaluate_job.sh",
+        BASE_DIR / "runtime" / "evaluate_job.py",
+        BASE_DIR / "runtime" / "evaluate_job.sh",
+        BASE_DIR / "evaluate_job.py",
+        BASE_DIR / "evaluate_job.sh",
+    ])
+    for p in candidates:
         if p.exists():
-            return p
+            return p.resolve()
     return None
 
 
@@ -212,10 +293,6 @@ def post_callback(callback_url: str, payload: Dict[str, Any]) -> Dict[str, Any]:
         return {"ok": False, "error": str(exc)}
 
 
-processing_lock = threading.Lock()
-stop_event = threading.Event()
-
-
 def process_job(job_id: str) -> None:
     with processing_lock:
         job_dir = QUEUE_DIR / job_id
@@ -225,6 +302,7 @@ def process_job(job_id: str) -> None:
             return
         job["status"] = "running"
         job["started_at"] = now_iso()
+        job["updated_at"] = job["started_at"]
         write_json(meta_path, job)
 
         result_path = RESULT_DIR / f"{job_id}.json"
@@ -234,46 +312,50 @@ def process_job(job_id: str) -> None:
         try:
             if runner:
                 cmd = runner_command(runner, job_dir, archive, result_path)
-                proc = subprocess.run(cmd, cwd=str(BASE_DIR), text=True, capture_output=True, timeout=int(os.environ.get("DRIVEROBUST_EVAL_TIMEOUT", "7200")))
+                env = {**os.environ, "DRIVEROBUST_STORAGE_ROOT": str(STORAGE_ROOT), "DRIVEROBUST_JOB_ID": job_id}
+                proc = subprocess.run(cmd, cwd=str(BASE_DIR), text=True, capture_output=True,
+                                      timeout=int(os.environ.get("DRIVEROBUST_EVAL_TIMEOUT", "7200")), env=env)
                 result = read_json(result_path, {}) if result_path.exists() else {}
                 result.update({
                     "job_id": job_id,
                     "status": "completed" if proc.returncode == 0 else "failed",
-                    "runner": str(runner.relative_to(BASE_DIR)),
+                    "runner": display_path(runner),
                     "runner_returncode": proc.returncode,
                     "runner_stdout_tail": proc.stdout[-8000:],
                     "runner_stderr_tail": proc.stderr[-8000:],
                     "completed_at": now_iso(),
                 })
             else:
-                # Safe built-in fallback: validates and records the package, but does not claim closed-loop simulation.
                 result = {
                     "job_id": job_id,
                     "status": "completed",
                     "evaluation_mode": "validation_only",
-                    "note": "Simulation marker is ready but no runtime/evaluate_job.py or .sh hook was found; archive validation metadata returned.",
+                    "note": "Simulation marker is ready but no evaluate_job.py/.sh hook was found; archive validation metadata returned.",
                     "manifest": job.get("manifest"),
                     "archive_stats": job.get("archive_stats"),
                     "completed_at": now_iso(),
                 }
             write_json(result_path, result)
             job["status"] = result.get("status", "completed")
-            job["result_path"] = str(result_path.relative_to(BASE_DIR))
+            job["result_path"] = display_path(result_path)
             job["completed_at"] = result.get("completed_at", now_iso())
+            job["updated_at"] = job["completed_at"]
         except subprocess.TimeoutExpired as exc:
             result = {"job_id": job_id, "status": "failed", "error": f"evaluation timeout: {exc}", "completed_at": now_iso()}
             write_json(result_path, result)
-            job.update({"status": "failed", "error": result["error"], "result_path": str(result_path.relative_to(BASE_DIR)), "completed_at": result["completed_at"]})
+            job.update({"status": "failed", "error": result["error"], "result_path": display_path(result_path), "completed_at": result["completed_at"], "updated_at": result["completed_at"]})
         except Exception as exc:
             result = {"job_id": job_id, "status": "failed", "error": str(exc), "completed_at": now_iso()}
             write_json(result_path, result)
-            job.update({"status": "failed", "error": str(exc), "result_path": str(result_path.relative_to(BASE_DIR)), "completed_at": result["completed_at"]})
+            job.update({"status": "failed", "error": str(exc), "result_path": display_path(result_path), "completed_at": result["completed_at"], "updated_at": result["completed_at"]})
 
         callback_url = job.get("callback_url") or (job.get("manifest") or {}).get("callback_url")
         if callback_url:
             cb = post_callback(callback_url, result)
             job["callback"] = {"url": callback_url, **cb, "sent_at": now_iso()}
-        write_json(meta_path, job)
+            write_json(meta_path, job)
+        else:
+            write_json(meta_path, job)
 
 
 def worker_loop() -> None:
@@ -298,7 +380,7 @@ def list_jobs() -> List[Dict[str, Any]]:
 
 
 class Handler(SimpleHTTPRequestHandler):
-    server_version = "DriveRobustLocalEval/1.0"
+    server_version = "DriveRobustLocalEval/1.1"
 
     def end_headers(self) -> None:
         self.send_header("Access-Control-Allow-Origin", "*")
@@ -335,36 +417,30 @@ class Handler(SimpleHTTPRequestHandler):
                 "service": "DriveRobust local evaluation gateway",
                 "status": "ready" if simulation_ready() else "queueing",
                 "simulation_ready": simulation_ready(),
-                "ready_marker": str(READY_MARKER.relative_to(BASE_DIR)),
-                "runner": str(runner_path().relative_to(BASE_DIR)) if runner_path() else None,
+                "ready_marker": display_path(READY_MARKER),
+                "runner": display_path(runner_path()) if runner_path() else None,
                 "queue_depth": queued,
                 "spec_version": SPEC_VERSION,
                 "upload_endpoint": "/api/evaluate/upload",
-                "max_upload_bytes": MAX_UPLOAD_BYTES,
                 "time": now_iso(),
+                **storage_info(),
             })
             return
         if path == "/api/spec":
             self.send_json(200, upload_spec())
             return
         if path == "/api/tasks":
-            self.send_json(200, {"jobs": list_jobs()})
+            self.send_json(200, {"jobs": list_jobs(), **storage_info()})
             return
         if path.startswith("/api/tasks/"):
             job_id = path.split("/")[-1]
             job = read_json(QUEUE_DIR / job_id / "job.json")
-            if not job:
-                self.send_json(404, {"error": "job not found"})
-            else:
-                self.send_json(200, job)
+            self.send_json(200, job) if job else self.send_json(404, {"error": "job not found"})
             return
         if path.startswith("/api/results/"):
             job_id = path.split("/")[-1]
             result = read_json(RESULT_DIR / f"{job_id}.json")
-            if not result:
-                self.send_json(404, {"error": "result not found or not completed"})
-            else:
-                self.send_json(200, result)
+            self.send_json(200, result) if result else self.send_json(404, {"error": "result not found or not completed"})
             return
         super().do_GET()
 
@@ -386,8 +462,11 @@ class Handler(SimpleHTTPRequestHandler):
         except ValueError:
             self.send_json(400, {"error": "invalid Content-Length"})
             return
-        if length <= 0 or length > MAX_UPLOAD_BYTES:
-            self.send_json(413, {"error": "upload too large or empty", "max_upload_bytes": MAX_UPLOAD_BYTES})
+        if length <= 0:
+            self.send_json(413, {"error": "upload empty"})
+            return
+        if length > MAX_UPLOAD_BYTES:
+            self.send_json(413, {"error": "upload too large", "max_upload_bytes": MAX_UPLOAD_BYTES, "max_upload_human": human_bytes(MAX_UPLOAD_BYTES)})
             return
 
         qs = urllib.parse.parse_qs(parsed.query)
@@ -396,22 +475,34 @@ class Handler(SimpleHTTPRequestHandler):
         callback_url = self.headers.get("X-Callback-Url") or (qs.get("callback_url") or [""])[0]
         submitter = self.headers.get("X-Submitter") or (qs.get("submitter") or [""])[0]
 
-        job_dir = QUEUE_DIR / job_id
-        if job_dir.exists():
-            self.send_json(409, {"error": "job_id already exists", "job_id": job_id})
-            return
-        job_dir.mkdir(parents=True, exist_ok=False)
-        archive_path = job_dir / filename
-        h = hashlib.sha256()
-        remaining = length
-        with archive_path.open("wb") as f:
-            while remaining > 0:
-                chunk = self.rfile.read(min(1024 * 1024, remaining))
-                if not chunk:
-                    break
-                f.write(chunk)
-                h.update(chunk)
-                remaining -= len(chunk)
+        with upload_lock:
+            used = storage_used_bytes()
+            if used + length > STORAGE_LIMIT_BYTES:
+                self.send_json(507, {
+                    "error": "bridge storage quota exceeded",
+                    "storage_root": str(STORAGE_ROOT),
+                    "storage_used_bytes": used,
+                    "storage_free_bytes": max(0, STORAGE_LIMIT_BYTES - used),
+                    "storage_limit_bytes": STORAGE_LIMIT_BYTES,
+                    "storage_limit_human": human_bytes(STORAGE_LIMIT_BYTES),
+                })
+                return
+            job_dir = QUEUE_DIR / job_id
+            if job_dir.exists():
+                self.send_json(409, {"error": "job_id already exists", "job_id": job_id})
+                return
+            job_dir.mkdir(parents=True, exist_ok=False)
+            archive_path = job_dir / filename
+            h = hashlib.sha256()
+            remaining = length
+            with archive_path.open("wb") as f:
+                while remaining > 0:
+                    chunk = self.rfile.read(min(1024 * 1024, remaining))
+                    if not chunk:
+                        break
+                    f.write(chunk)
+                    h.update(chunk)
+                    remaining -= len(chunk)
         if remaining != 0:
             shutil.rmtree(job_dir, ignore_errors=True)
             self.send_json(400, {"error": "upload stream ended early"})
@@ -421,7 +512,7 @@ class Handler(SimpleHTTPRequestHandler):
         created = now_iso()
         job = {
             "job_id": job_id,
-            "status": "rejected" if errors else ("queued" if not simulation_ready() else "queued"),
+            "status": "rejected" if errors else "queued",
             "reason": None if not errors else "invalid_upload_package",
             "queue_note": None if simulation_ready() else "simulation environment is not ready; job is accepted and waiting in queue",
             "created_at": created,
@@ -435,12 +526,10 @@ class Handler(SimpleHTTPRequestHandler):
             "manifest": manifest,
             "archive_stats": stats,
             "validation_errors": errors,
+            "storage_root": str(STORAGE_ROOT),
         }
         write_json(job_dir / "job.json", job)
-        if errors:
-            self.send_json(400, job)
-        else:
-            self.send_json(202, job)
+        self.send_json(400 if errors else 202, job)
 
 
 def upload_spec() -> Dict[str, Any]:
@@ -450,7 +539,7 @@ def upload_spec() -> Dict[str, Any]:
         "body": "raw binary archive (.zip/.tar.gz/.tgz/.tar) or manifest .json for dry-run validation",
         "required_headers": ["X-File-Name"],
         "optional_headers": ["X-Job-Id", "X-Callback-Url", "X-Submitter", "X-Upload-Token", "Authorization: Bearer <token>"],
-        "max_upload_bytes": MAX_UPLOAD_BYTES,
+        "limits": storage_info(),
         "manifest_root_file": "manifest.json",
         "manifest_schema": {
             "spec_version": SPEC_VERSION,
@@ -462,26 +551,40 @@ def upload_spec() -> Dict[str, Any]:
                 "images": "inputs/images/ or samples/<CAM_NAME>/",
                 "lidar": "inputs/lidar/ or velodyne/ (optional)",
                 "calib": "calib/ (optional)",
-                "labels": "labels/ or annotations/ (optional)"
+                "labels": "labels/ or annotations/ (optional)",
             },
             "callback_url": "optional HTTPS URL; result JSON will be POSTed here",
         },
-        "status_rule": "If runtime/SIM_READY or DRIVEROBUST_SIM_READY=1 exists, queued jobs are evaluated; otherwise accepted jobs remain queued.",
+        "status_rule": "If <storage-root>/runtime/SIM_READY or DRIVEROBUST_SIM_READY=1 exists, queued jobs are evaluated; otherwise accepted jobs remain queued.",
+        "runner_rule": "Place evaluate_job.py/.sh in <storage-root>/runtime/ or pages/runtime/, or set DRIVEROBUST_EVAL_RUNNER.",
         "result_endpoints": ["GET /api/tasks/<job_id>", "GET /api/results/<job_id>"],
     }
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser()
+    parser = argparse.ArgumentParser(description="DriveRobust local upload/evaluation bridge")
     parser.add_argument("--host", default="127.0.0.1")
     parser.add_argument("--port", type=int, default=8765)
+    parser.add_argument("--storage-root", default=os.environ.get("DRIVEROBUST_STORAGE_ROOT", str(BASE_DIR / "bridge_storage")),
+                        help="isolated bridge storage location chosen by the operator; use /dev/shm/... for RAM-backed tmpfs on Linux")
+    parser.add_argument("--max-upload-mb", type=int, default=int(os.environ.get("DRIVEROBUST_MAX_UPLOAD_MB", "500")),
+                        help="single upload limit in MB; default 500")
+    parser.add_argument("--storage-limit-mb", type=int, default=int(os.environ.get("DRIVEROBUST_STORAGE_LIMIT_MB", "500")),
+                        help="total bridge storage quota in MB; default 500")
+    parser.add_argument("--token", default=os.environ.get("DRIVEROBUST_UPLOAD_TOKEN", ""),
+                        help="optional upload token; clients send X-Upload-Token or Authorization: Bearer")
     args = parser.parse_args()
+
+    global UPLOAD_TOKEN
+    UPLOAD_TOKEN = args.token.strip()
+    configure_storage(Path(args.storage_root), args.max_upload_mb, args.storage_limit_mb)
 
     worker = threading.Thread(target=worker_loop, name="eval-worker", daemon=True)
     worker.start()
     server = ThreadingHTTPServer((args.host, args.port), lambda *a, **kw: Handler(*a, directory=str(BASE_DIR), **kw))
-    print(f"DriveRobust local eval gateway: http://{args.host}:{args.port}/dashboard.html", flush=True)
+    print(f"DriveRobust local eval gateway: http://{args.host}:{args.port}/upload_gateway.html", flush=True)
     print(f"Upload endpoint: http://{args.host}:{args.port}/api/evaluate/upload", flush=True)
+    print(f"Storage root: {STORAGE_ROOT} (limit {human_bytes(STORAGE_LIMIT_BYTES)}, max upload {human_bytes(MAX_UPLOAD_BYTES)})", flush=True)
     print(f"Ready marker: {READY_MARKER}", flush=True)
     try:
         server.serve_forever()
