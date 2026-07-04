@@ -5,3 +5,9 @@ Thumbs.db
 .vscode/
 .idea/
 pages/assets/velodyne
+pages_local/assets/images_flat
+pages_local/assets/small50_images
+pages_local/assets/velodyne
+pages_local/assets/velodyne_js
+pages_local/samples
+
