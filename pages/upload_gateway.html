@@ -15,7 +15,7 @@
   *{box-sizing:border-box} body{margin:0;background:radial-gradient(circle at top left,rgba(124,255,186,.09),transparent 32%),var(--bg);color:var(--text);font-family:var(--sans);}
   a{color:var(--accent);text-decoration:none} code,pre,input,select,button{font-family:var(--mono)}
   .shell{max-width:1180px;margin:0 auto;padding:28px 18px 64px}.top{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:20px}.brand{display:flex;gap:12px;align-items:center}.logo{width:38px;height:38px;border-radius:6px;background:var(--accent);color:#07110c;font-weight:900;display:grid;place-items:center}.eyebrow{font-family:var(--mono);font-size:12px;color:var(--accent);letter-spacing:.08em;text-transform:uppercase}.title{font-size:28px;font-weight:900;margin:4px 0}.subtitle{color:var(--muted);font-size:14px;line-height:1.7}.nav{display:flex;gap:10px;flex-wrap:wrap}.btn{border:1px solid var(--line);background:rgba(255,255,255,.04);color:var(--text);padding:10px 14px;border-radius:4px;cursor:pointer;font-weight:800;font-size:12px}.btn.primary{background:var(--accent);color:#07110c;border-color:var(--accent)}.btn.warn{border-color:rgba(247,179,71,.5);color:var(--yellow)}
-  .grid{display:grid;grid-template-columns:1.05fr .95fr;gap:16px}.card{background:linear-gradient(180deg,rgba(255,255,255,.045),rgba(255,255,255,.018));border:1px solid var(--line);box-shadow:0 18px 60px rgba(0,0,0,.28);padding:18px;border-radius:8px}.card h2{font-size:16px;margin:0 0 12px;font-family:var(--mono);letter-spacing:.03em}.card h3{font-size:14px;margin:18px 0 10px;color:var(--accent)}.status-row{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin:16px 0}.stat{background:#0c121a;border:1px solid rgba(255,255,255,.08);padding:12px;border-radius:6px}.stat b{display:block;font-size:20px;color:var(--accent);margin-bottom:4px}.stat span{font-size:12px;color:var(--muted)}
+  .grid{display:grid;grid-template-columns:1.05fr .95fr;gap:16px}.card{background:linear-gradient(180deg,rgba(255,255,255,.045),rgba(255,255,255,.018));border:1px solid var(--line);box-shadow:0 18px 60px rgba(0,0,0,.28);padding:18px;border-radius:8px}.card h2{font-size:16px;margin:0 0 12px;font-family:var(--mono);letter-spacing:.03em}.card h3{font-size:14px;margin:18px 0 10px;color:var(--accent)}.status-row{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin:16px 0}.stat{background:#0c121a;border:1px solid rgba(255,255,255,.08);padding:12px;border-radius:6px}.stat b{display:block;font-size:20px;color:var(--accent);margin-bottom:4px}.stat span{font-size:12px;color:var(--muted)}
   label{display:flex;flex-direction:column;gap:7px;font-size:12px;color:var(--muted);font-weight:700}.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}input,select{width:100%;background:#0b1119;border:1px solid rgba(255,255,255,.12);color:var(--text);padding:10px;border-radius:4px}input[type=file]{padding:8px}.hint{font-size:12px;color:var(--muted);line-height:1.6}.pill{display:inline-flex;align-items:center;gap:6px;padding:3px 8px;border:1px solid var(--line);border-radius:999px;font-family:var(--mono);font-size:11px;color:var(--accent);background:rgba(124,255,186,.07)}.pill.queue{color:var(--yellow);border-color:rgba(247,179,71,.4);background:rgba(247,179,71,.08)}.pill.err{color:var(--red);border-color:rgba(255,107,107,.4);background:rgba(255,107,107,.08)}
   pre{background:#080d14;border:1px solid rgba(255,255,255,.09);padding:14px;border-radius:6px;overflow:auto;line-height:1.55;color:#d7ffe9;font-size:12px}table{width:100%;border-collapse:collapse;font-size:12px}td,th{border-bottom:1px solid rgba(255,255,255,.08);padding:9px;text-align:left;vertical-align:top}th{color:var(--accent);font-family:var(--mono)}.mono{font-family:var(--mono)}.log{height:280px;overflow:auto;white-space:pre-wrap;background:#060a10;border:1px solid rgba(255,255,255,.1);padding:12px;border-radius:6px;font:12px/1.55 var(--mono);color:#d7ffe9}.spec-list{margin:0;padding-left:18px;color:var(--muted);line-height:1.75}.spec-list strong{color:var(--text)}.ok{color:var(--green)}.bad{color:var(--red)}.queue{color:var(--yellow)}
   @media(max-width:900px){.grid,.form-grid,.status-row{grid-template-columns:1fr}.top{align-items:flex-start;flex-direction:column}}
@@ -85,29 +85,27 @@
 
     <section class="card">
       <h2>// 2. 本机启动与队列规则</h2>
-      <p class="hint">上传数据不会写入 GitHub Pages 页面目录；由 <code>--storage-root</code> 指定一块独立桥接存储区，默认单文件与总容量均限制为 <code>500MB</code>。如果你希望使用内存盘，可在 Linux 下选择 <code>/dev/shm/driverobust_bridge</code>。</p>
+      <p class="hint">上传数据不会写入 GitHub Pages 页面目录；网关默认固定使用 <code>/dev/shm/driverobust_bridge</code> 作为独立桥接存储区，单文件与总容量均限制为 <code>500MB</code>。如需更换位置，只在本机启动服务时用 <code>--fixed-storage-root</code> 固定指定。</p>
       <pre>cd /home/matrix/seoul_robotics_style/evaluation_v2/pages
-python3 local_eval_server.py --host 0.0.0.0 --port 8765 \
-  --storage-root /你选择的位置/driverobust_bridge \
-  --max-upload-mb 500 --storage-limit-mb 500
+python3 local_eval_server.py --host 0.0.0.0 --port 8765
 
-# 示例：使用 Linux 内存盘（重启会清空）
+# 如需本机管理员固定改到另一个安全位置：
 python3 local_eval_server.py --host 0.0.0.0 --port 8765 \
-  --storage-root /dev/shm/driverobust_bridge \
+  --fixed-storage-root /固定安全位置/driverobust_bridge \
   --max-upload-mb 500 --storage-limit-mb 500</pre>
       <table>
         <tr><th>状态</th><th>判定方式</th><th>行为</th></tr>
-        <tr><td><span class="pill queue">QUEUEING</span></td><td>不存在 <code>&lt;storage-root&gt;/runtime/SIM_READY</code> 且未设置 <code>DRIVEROBUST_SIM_READY=1</code></td><td>合法上传包被保存到 <code>&lt;storage-root&gt;/eval_queue/</code>，接口返回 <code>202 queued</code> 与排队说明。</td></tr>
-        <tr><td><span class="pill">READY</span></td><td>创建 <code>&lt;storage-root&gt;/runtime/SIM_READY</code> 或设置环境变量</td><td>后台 worker 取队列任务，调用 <code>&lt;storage-root&gt;/runtime/evaluate_job.py</code> 或 <code>.sh</code>。</td></tr>
+        <tr><td><span class="pill queue">QUEUEING</span></td><td>不存在 <code>&lt;fixed-storage-root&gt;/runtime/SIM_READY</code> 且未设置 <code>DRIVEROBUST_SIM_READY=1</code></td><td>合法上传包被保存到 <code>&lt;fixed-storage-root&gt;/eval_queue/</code>，接口返回 <code>202 queued</code> 与排队说明。</td></tr>
+        <tr><td><span class="pill">READY</span></td><td>创建 <code>&lt;fixed-storage-root&gt;/runtime/SIM_READY</code> 或设置环境变量</td><td>后台 worker 取队列任务，调用 <code>&lt;fixed-storage-root&gt;/runtime/evaluate_job.py</code> 或 <code>.sh</code>。</td></tr>
         <tr><td><span class="pill">RETURN</span></td><td>任务完成且 manifest 或请求头提供 callback</td><td>本机会将结果 JSON <code>POST</code> 到远端 <code>callback_url</code>，同时保存在 <code>eval_results/</code>。</td></tr>
       </table>
       <h3>标记仿真环境就绪 / 暂停接单</h3>
       <pre># 就绪：开始消费队列
-mkdir -p /你选择的位置/driverobust_bridge/runtime
-touch /你选择的位置/driverobust_bridge/runtime/SIM_READY
+mkdir -p /dev/shm/driverobust_bridge/runtime
+touch /dev/shm/driverobust_bridge/runtime/SIM_READY
 
 # 暂停：只接收上传并排队
-rm -f /你选择的位置/driverobust_bridge/runtime/SIM_READY</pre>
+rm -f /dev/shm/driverobust_bridge/runtime/SIM_READY</pre>
     </section>
   </div>
 
@@ -156,12 +154,12 @@ rm -f /你选择的位置/driverobust_bridge/runtime/SIM_READY</pre>
 
   <section class="card" style="margin-top:16px">
     <h2>// 4. 评估执行钩子与结果格式</h2>
-    <p class="hint">网关只负责接收、校验、排队、调度与回传。真正仿真评估逻辑建议放在 <code>--storage-root/runtime/evaluate_job.py</code> 或 <code>.sh</code> 中，也可放在本文件夹的 <code>runtime/</code> 中；仿真环境未准备好时不要创建 <code>SIM_READY</code>。</p>
+    <p class="hint">网关只负责接收、校验、排队、调度与回传。真正仿真评估逻辑建议放在 <code>&lt;fixed-storage-root&gt;/runtime/evaluate_job.py</code> 或 <code>.sh</code> 中，也可放在本文件夹的 <code>runtime/</code> 中；仿真环境未准备好时不要创建 <code>SIM_READY</code>。</p>
 <pre># runtime/evaluate_job.py 会收到：
 python3 runtime/evaluate_job.py \
-  --job-dir &lt;storage-root&gt;/eval_queue/&lt;job_id&gt; \
-  --archive &lt;storage-root&gt;/eval_queue/&lt;job_id&gt;/package.zip \
-  --result &lt;storage-root&gt;/eval_results/&lt;job_id&gt;.json</pre>
+  --job-dir &lt;fixed-storage-root&gt;/eval_queue/&lt;job_id&gt; \
+  --archive &lt;fixed-storage-root&gt;/eval_queue/&lt;job_id&gt;/package.zip \
+  --result &lt;fixed-storage-root&gt;/eval_results/&lt;job_id&gt;.json</pre>
     <p class="hint">结果 JSON 建议至少包含：</p>
 <pre>{
   "job_id": "remote-task-0001",

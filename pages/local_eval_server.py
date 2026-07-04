@@ -2,12 +2,14 @@
 """
 DriveRobust local evaluation upload gateway.
 
-Run from this folder and choose an isolated bridge storage area:
-  python3 local_eval_server.py --host 0.0.0.0 --port 8765 --storage-root /path/to/bridge_storage
+Run from this folder:
+  python3 local_eval_server.py --host 0.0.0.0 --port 8765
 
-The gateway serves the static pages from this pages/ folder, but uploaded data,
-queue metadata and results are written to --storage-root. By default both the
-single-upload limit and the total bridge storage quota are 500 MB.
+For host safety, uploaded data is never written into the web page directory.
+The bridge uses one fixed RAM-backed storage root by default:
+  /dev/shm/driverobust_bridge
+
+Both the single-upload limit and the total bridge storage quota are 500 MB.
 """
 from __future__ import annotations
 
@@ -35,7 +37,8 @@ BASE_DIR = Path(__file__).resolve().parent
 SPEC_VERSION = "driverobust-eval-upload-v1"
 DEFAULT_LIMIT_BYTES = 500 * 1024 * 1024
 
-STORAGE_ROOT = Path(os.environ.get("DRIVEROBUST_STORAGE_ROOT", str(BASE_DIR / "bridge_storage"))).expanduser()
+FIXED_STORAGE_ROOT = Path(os.environ.get("DRIVEROBUST_FIXED_STORAGE_ROOT", "/dev/shm/driverobust_bridge")).expanduser()
+STORAGE_ROOT = FIXED_STORAGE_ROOT
 MAX_UPLOAD_BYTES = int(os.environ.get("DRIVEROBUST_MAX_UPLOAD_BYTES", str(DEFAULT_LIMIT_BYTES)))
 STORAGE_LIMIT_BYTES = int(os.environ.get("DRIVEROBUST_STORAGE_LIMIT_BYTES", str(DEFAULT_LIMIT_BYTES)))
 WORKER_INTERVAL = float(os.environ.get("DRIVEROBUST_WORKER_INTERVAL", "3"))
@@ -555,8 +558,8 @@ def upload_spec() -> Dict[str, Any]:
             },
             "callback_url": "optional HTTPS URL; result JSON will be POSTed here",
         },
-        "status_rule": "If <storage-root>/runtime/SIM_READY or DRIVEROBUST_SIM_READY=1 exists, queued jobs are evaluated; otherwise accepted jobs remain queued.",
-        "runner_rule": "Place evaluate_job.py/.sh in <storage-root>/runtime/ or pages/runtime/, or set DRIVEROBUST_EVAL_RUNNER.",
+        "status_rule": "If <fixed-storage-root>/runtime/SIM_READY or DRIVEROBUST_SIM_READY=1 exists, queued jobs are evaluated; otherwise accepted jobs remain queued.",
+        "runner_rule": "Place evaluate_job.py/.sh in the fixed <fixed-storage-root>/runtime/ or pages/runtime/, or set DRIVEROBUST_EVAL_RUNNER.",
         "result_endpoints": ["GET /api/tasks/<job_id>", "GET /api/results/<job_id>"],
     }
 
@@ -565,19 +568,19 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="DriveRobust local upload/evaluation bridge")
     parser.add_argument("--host", default="127.0.0.1")
     parser.add_argument("--port", type=int, default=8765)
-    parser.add_argument("--storage-root", default=os.environ.get("DRIVEROBUST_STORAGE_ROOT", str(BASE_DIR / "bridge_storage")),
-                        help="isolated bridge storage location chosen by the operator; use /dev/shm/... for RAM-backed tmpfs on Linux")
+    parser.add_argument("--fixed-storage-root", default=str(FIXED_STORAGE_ROOT),
+                        help="fixed operator-selected bridge storage root; default /dev/shm/driverobust_bridge")
     parser.add_argument("--max-upload-mb", type=int, default=int(os.environ.get("DRIVEROBUST_MAX_UPLOAD_MB", "500")),
-                        help="single upload limit in MB; default 500")
+                        help="single upload limit in MB; default 500; values above storage quota are clamped")
     parser.add_argument("--storage-limit-mb", type=int, default=int(os.environ.get("DRIVEROBUST_STORAGE_LIMIT_MB", "500")),
-                        help="total bridge storage quota in MB; default 500")
+                        help="total fixed bridge storage quota in MB; default 500")
     parser.add_argument("--token", default=os.environ.get("DRIVEROBUST_UPLOAD_TOKEN", ""),
                         help="optional upload token; clients send X-Upload-Token or Authorization: Bearer")
     args = parser.parse_args()
 
     global UPLOAD_TOKEN
     UPLOAD_TOKEN = args.token.strip()
-    configure_storage(Path(args.storage_root), args.max_upload_mb, args.storage_limit_mb)
+    configure_storage(Path(args.fixed_storage_root), args.max_upload_mb, args.storage_limit_mb)
 
     worker = threading.Thread(target=worker_loop, name="eval-worker", daemon=True)
     worker.start()
